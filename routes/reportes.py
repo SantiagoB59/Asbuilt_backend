@@ -702,7 +702,9 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
     from io import BytesIO
     import os
+
     from flask import send_file
+
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image
     from openpyxl.styles import (
@@ -712,37 +714,35 @@ def exportar_formato_mantenimiento(vehiculo_id):
         Side,
         Alignment
     )
+    from openpyxl.worksheet.page import PageMargins
+    from openpyxl.utils.cell import range_boundaries
 
-    # =================================================
+    # ============================================================
     # VEHÍCULO
-    # =================================================
+    # ============================================================
 
     vehiculo = Vehiculo.query.get_or_404(
         vehiculo_id
     )
 
-    # =================================================
+    # ============================================================
     # MANTENIMIENTOS
-    # =================================================
+    # ============================================================
 
     mantenimientos = (
-
         Mantenimiento.query
-
         .filter(
             Mantenimiento.vehiculo_id == vehiculo_id
         )
-
         .order_by(
             Mantenimiento.fecha.desc()
         )
-
         .all()
     )
 
-    # =================================================
+    # ============================================================
     # EXCEL
-    # =================================================
+    # ============================================================
 
     wb = Workbook()
 
@@ -750,72 +750,202 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
     ws.title = 'R. MANTENIMIENTO'
 
+    # Ocultar cuadrícula
     ws.sheet_view.showGridLines = False
 
-    # =================================================
-    # ANCHO COLUMNAS
-    # =================================================
+    # ============================================================
+    # CONFIGURACIÓN DE PÁGINA
+    # ============================================================
+
+    ws.page_setup.orientation = 'landscape'
+
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
+    ws.page_setup.fitToWidth = 1
+
+    ws.page_setup.fitToHeight = 0
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    ws.page_margins = PageMargins(
+        left=0.25,
+        right=0.25,
+        top=0.35,
+        bottom=0.35,
+        header=0.15,
+        footer=0.15
+    )
+
+    ws.print_options.horizontalCentered = True
+
+    # ============================================================
+    # PALETA CORPORATIVA INTELLIFEET
+    # ============================================================
+
+    NAVY = '0B1F33'
+
+    NAVY_2 = '132F4C'
+
+    GOLD = 'B58A32'
+
+    GOLD_LIGHT = 'F3E8C8'
+
+    BLUE_LIGHT = 'EAF2F8'
+
+    BLUE_SOFT = 'DCEAF5'
+
+    WHITE = 'FFFFFF'
+
+    GRAY_LIGHT = 'F5F7FA'
+
+    GRAY = 'E8ECF1'
+
+    GRAY_TEXT = '475569'
+
+    DARK = '17202A'
+
+    GREEN = '15803D'
+
+    GREEN_LIGHT = 'DCFCE7'
+
+    RED = 'B91C1C'
+
+    RED_LIGHT = 'FEE2E2'
+
+    ORANGE = 'B45309'
+
+    ORANGE_LIGHT = 'FEF3C7'
+
+    # ============================================================
+    # ANCHOS DE COLUMNAS
+    # ============================================================
 
     columnas = {
 
-        'A': 15,   # Fecha
-        'B': 12,   # Sistema (Reducido ya que solo llevará iniciales)
-        'C': 20,   # Descripción (Parte 1)
-        'D': 18,   # Descripción (Parte 2)
-        'E': 18,   # Descripción (Parte 3)
-        'F': 18,   # Descripción (Parte 4)
-        'G': 18,   # Insumos (Parte 1)
-        'H': 18,   # Insumos (Parte 2)
-        'I': 12,   # Responsable
-        'J': 12,   # Preventivo
-        'K': 18,   # Correctivo
-        'L': 30    # Soporte
+        'A': 13,   # Fecha
+
+        'B': 15,   # Kilometraje
+
+        'C': 10,   # Sistema
+
+        'D': 20,   # Descripción
+
+        'E': 20,
+
+        'F': 20,
+
+        'G': 20,
+
+        'H': 18,   # Insumos
+
+        'I': 18,
+
+        'J': 16,   # Responsable
+
+        'K': 14,   # Preventivo
+
+        'L': 14,   # Correctivo
+
+        'M': 28    # Soporte
 
     }
 
     for col, width in columnas.items():
 
-        ws.column_dimensions[col].width = width
+        ws.column_dimensions[
+            col
+        ].width = width
 
-    # =================================================
-    # ESTILOS
-    # =================================================
+    # ============================================================
+    # ESTILOS DE FONDO
+    # ============================================================
 
-    azul_oscuro = PatternFill(
-        start_color='1F4E78',
-        end_color='1F4E78',
-        fill_type='solid'
+    fill_navy = PatternFill(
+        fill_type='solid',
+        fgColor=NAVY
     )
 
-    azul_claro = PatternFill(
-        start_color='D9EAF7',
-        end_color='D9EAF7',
-        fill_type='solid'
+    fill_navy_2 = PatternFill(
+        fill_type='solid',
+        fgColor=NAVY_2
     )
 
-    azul_header = PatternFill(
-        start_color='8DB4E2',
-        end_color='8DB4E2',
-        fill_type='solid'
+    fill_gold = PatternFill(
+        fill_type='solid',
+        fgColor=GOLD
     )
 
-    gris = PatternFill(
-        start_color='F2F2F2',
-        end_color='F2F2F2',
-        fill_type='solid'
+    fill_gold_light = PatternFill(
+        fill_type='solid',
+        fgColor=GOLD_LIGHT
     )
 
-    thin = Side(
+    fill_blue_light = PatternFill(
+        fill_type='solid',
+        fgColor=BLUE_LIGHT
+    )
+
+    fill_blue_soft = PatternFill(
+        fill_type='solid',
+        fgColor=BLUE_SOFT
+    )
+
+    fill_gray = PatternFill(
+        fill_type='solid',
+        fgColor=GRAY_LIGHT
+    )
+
+    fill_white = PatternFill(
+        fill_type='solid',
+        fgColor=WHITE
+    )
+
+    fill_green = PatternFill(
+        fill_type='solid',
+        fgColor=GREEN_LIGHT
+    )
+
+    fill_red = PatternFill(
+        fill_type='solid',
+        fgColor=RED_LIGHT
+    )
+
+    fill_orange = PatternFill(
+        fill_type='solid',
+        fgColor=ORANGE_LIGHT
+    )
+
+    # ============================================================
+    # BORDES
+    # ============================================================
+
+    thin_gray = Side(
         border_style='thin',
-        color='BFBFBF'
+        color='CBD5E1'
+    )
+
+    medium_navy = Side(
+        border_style='medium',
+        color=NAVY
     )
 
     border = Border(
-        left=thin,
-        right=thin,
-        top=thin,
-        bottom=thin
+        left=thin_gray,
+        right=thin_gray,
+        top=thin_gray,
+        bottom=thin_gray
     )
+
+    border_navy = Border(
+        left=medium_navy,
+        right=medium_navy,
+        top=medium_navy,
+        bottom=medium_navy
+    )
+
+    # ============================================================
+    # ALINEACIONES
+    # ============================================================
 
     center = Alignment(
         horizontal='center',
@@ -829,130 +959,390 @@ def exportar_formato_mantenimiento(vehiculo_id):
         wrap_text=True
     )
 
-    titulo_font = Font(
+    # ============================================================
+    # FUENTES
+    # ============================================================
+
+    font_title = Font(
+        name='Aptos Display',
         bold=True,
-        color='FFFFFF',
-        size=14
+        size=16,
+        color=WHITE
     )
 
-    subtitulo_font = Font(
+    font_subtitle = Font(
+        name='Aptos',
         bold=True,
-        color='FFFFFF',
-        size=11
+        size=11,
+        color=WHITE
     )
 
-    bold = Font(
-        bold=True,
-        size=10,
-        color='1F1F1F'
-    )
-
-    normal = Font(
-        size=10,
-        color='333333'
-    )
-
-    white_bold = Font(
+    font_section = Font(
+        name='Aptos',
         bold=True,
         size=10,
-        color='FFFFFF'
+        color=WHITE
     )
 
-    # =================================================
-    # ALTURA FILAS
-    # =================================================
+    font_label = Font(
+        name='Aptos',
+        bold=True,
+        size=9,
+        color=NAVY
+    )
+
+    font_value = Font(
+        name='Aptos',
+        size=10,
+        color=DARK
+    )
+
+    font_header = Font(
+        name='Aptos',
+        bold=True,
+        size=9,
+        color=WHITE
+    )
+
+    font_normal = Font(
+        name='Aptos',
+        size=9,
+        color=DARK
+    )
+
+    font_km = Font(
+        name='Aptos Display',
+        bold=True,
+        size=10,
+        color=NAVY
+    )
+
+    # ============================================================
+    # FUNCIÓN PARA BORDES COMPLETOS EN RANGOS COMBINADOS
+    # ============================================================
+
+    def aplicar_borde_rango(
+        hoja,
+        rango,
+        border_style
+    ):
+
+        min_col, min_row, max_col, max_row = (
+            range_boundaries(rango)
+        )
+
+        for row in range(
+            min_row,
+            max_row + 1
+        ):
+
+            for col in range(
+                min_col,
+                max_col + 1
+            ):
+
+                cell = hoja.cell(
+                    row=row,
+                    column=col
+                )
+
+                left_border = (
+                    border_style.left
+                    if col == min_col
+                    else Side(style=None)
+                )
+
+                right_border = (
+                    border_style.right
+                    if col == max_col
+                    else Side(style=None)
+                )
+
+                top_border = (
+                    border_style.top
+                    if row == min_row
+                    else Side(style=None)
+                )
+
+                bottom_border = (
+                    border_style.bottom
+                    if row == max_row
+                    else Side(style=None)
+                )
+
+                cell.border = Border(
+                    left=left_border,
+                    right=right_border,
+                    top=top_border,
+                    bottom=bottom_border
+                )
+
+    # ============================================================
+    # ALTURAS DE FILAS
+    # ============================================================
 
     for i in range(1, 60):
 
-        ws.row_dimensions[i].height = 28
+        ws.row_dimensions[
+            i
+        ].height = 25
 
-    ws.row_dimensions[1].height = 35
-    ws.row_dimensions[2].height = 30
-    ws.row_dimensions[3].height = 30
+    ws.row_dimensions[1].height = 48
 
-    # =================================================
+    ws.row_dimensions[2].height = 28
+
+    ws.row_dimensions[3].height = 28
+
+    ws.row_dimensions[4].height = 6
+
+    ws.row_dimensions[5].height = 26
+
+    ws.row_dimensions[14].height = 38
+
+    ws.row_dimensions[15].height = 38
+
+    # ============================================================
+    # CABECERA CORPORATIVA
+    # ============================================================
+
+    for row in range(1, 4):
+
+        for col in range(1, 14):
+
+            ws.cell(
+                row=row,
+                column=col
+            ).fill = fill_navy
+
+    # ============================================================
     # LOGO
-    # =================================================
+    # ============================================================
 
-    ws.merge_cells('A1:B3')
+    try:
 
-    for row in ws['A1:B3']:
+        rutas_logo = [
 
-        for cell in row:
+            os.path.join(
+                os.getcwd(),
+                'static',
+                'intellifeet.png'
+            ),
 
-            cell.fill = azul_oscuro
-            cell.border = border
+            os.path.join(
+                os.path.dirname(__file__),
+                '..',
+                'static',
+                'intellifeet.png'
+            ),
 
-    logo = Image('static/intellifeet.png')
+            os.path.join(
+                os.path.dirname(__file__),
+                'static',
+                'intellifeet.png'
+            )
 
-    logo.width = 260
-    logo.height = 128
+        ]
 
-    ws.add_image(logo, 'A1')
+        ruta_logo = next(
+            (
+                os.path.abspath(ruta)
+                for ruta in rutas_logo
+                if os.path.exists(ruta)
+            ),
+            None
+        )
 
-    ws.merge_cells('C1:G2')
+        if ruta_logo:
 
-    ws['C1'] = 'GESTIÓN DIRECCIÓN DE PROYECTOS'
+            logo = Image(
+                ruta_logo
+            )
 
-    ws['C1'].fill = azul_oscuro
-    ws['C1'].font = titulo_font
+            # ----------------------------------------------------
+            # LOGO MÁS GRANDE
+            # ----------------------------------------------------
+
+            max_width = 230
+
+            max_height = 90
+
+            if logo.width and logo.height:
+
+                escala = min(
+                    max_width / logo.width,
+                    max_height / logo.height
+                )
+
+                logo.width = int(
+                    logo.width * escala
+                )
+
+                logo.height = int(
+                    logo.height * escala
+                )
+
+            ws.add_image(
+                logo,
+                'A1'
+            )
+
+    except Exception as e:
+
+        print(
+            'No se pudo cargar logo IntelliFeet:',
+            e
+        )
+
+    # ============================================================
+    # TÍTULO
+    # ============================================================
+
+    ws.merge_cells(
+        'C1:J1'
+    )
+
+    ws['C1'] = (
+        'GESTIÓN DIRECCIÓN DE PROYECTOS'
+    )
+
+    ws['C1'].font = font_title
+
     ws['C1'].alignment = center
-    ws['C1'].border = border
 
-    ws.merge_cells('C3:G3')
+    ws['C1'].fill = fill_navy
 
-    ws['C3'] = 'REPORTE DE MANTENIMIENTO VEHICULAR'
+    # ============================================================
+    # SUBTÍTULO
+    # ============================================================
 
-    ws['C3'].fill = azul_claro
+    ws.merge_cells(
+        'C2:J2'
+    )
+
+    ws['C2'] = (
+        'REPORTE DE MANTENIMIENTO VEHICULAR'
+    )
+
+    ws['C2'].font = font_subtitle
+
+    ws['C2'].alignment = center
+
+    ws['C2'].fill = fill_navy
+
+    # ============================================================
+    # DESCRIPCIÓN
+    # ============================================================
+
+    ws.merge_cells(
+        'C3:J3'
+    )
+
+    ws['C3'] = (
+        'CONTROL DE MANTENIMIENTO • '
+        'TRAZABILIDAD OPERACIONAL'
+    )
 
     ws['C3'].font = Font(
+        name='Aptos',
         bold=True,
-        size=12,
-        color='1F1F1F'
+        size=9,
+        color=GOLD_LIGHT
     )
 
     ws['C3'].alignment = center
-    ws['C3'].border = border
+
+    ws['C3'].fill = fill_navy
+
+    # ============================================================
+    # CONTROL DOCUMENTAL
+    # ============================================================
 
     info_header = [
 
-        ('H1:I1', 'VERSIÓN: 006'),
-        ('H2:I2', 'CÓDIGO: PROY-R-022'),
-        ('H3:I3', 'PÁGINA: 1 DE 1')
+        (
+            'K1:M1',
+            'VERSIÓN: 006'
+        ),
+
+        (
+            'K2:M2',
+            'CÓDIGO: PROY-R-022'
+        ),
+
+        (
+            'K3:M3',
+            'PÁGINA: 1 DE 1'
+        )
 
     ]
 
     for rango, texto in info_header:
 
-        ws.merge_cells(rango)
+        ws.merge_cells(
+            rango
+        )
 
         cell = rango.split(':')[0]
 
         ws[cell] = texto
 
-        ws[cell].fill = azul_oscuro
+        ws[cell].fill = fill_navy_2
 
-        ws[cell].font = white_bold
+        ws[cell].font = Font(
+            name='Aptos',
+            bold=True,
+            size=8,
+            color=WHITE
+        )
 
         ws[cell].alignment = center
 
-        ws[cell].border = border
+        aplicar_borde_rango(
+            ws,
+            rango,
+            border
+        )
 
-    # =================================================
-    # DATOS VEHÍCULO
-    # =================================================
+    # ============================================================
+    # LÍNEA DORADA
+    # ============================================================
 
-    ws.merge_cells('A5:K5')
+    for col in range(1, 14):
 
-    ws['A5'] = 'INFORMACIÓN GENERAL DEL VEHÍCULO'
+        ws.cell(
+            row=4,
+            column=col
+        ).fill = fill_gold
 
-    ws['A5'].fill = azul_oscuro
+    # ============================================================
+    # INFORMACIÓN GENERAL
+    # ============================================================
 
-    ws['A5'].font = subtitulo_font
+    rango_info = 'A5:M5'
+
+    ws.merge_cells(
+        rango_info
+    )
+
+    ws['A5'] = (
+        'INFORMACIÓN GENERAL DEL VEHÍCULO'
+    )
+
+    ws['A5'].fill = fill_navy
+
+    ws['A5'].font = font_section
 
     ws['A5'].alignment = center
 
-    ws['A5'].border = border
+    aplicar_borde_rango(
+        ws,
+        rango_info,
+        border_navy
+    )
+
+    # ============================================================
+    # TIPO VEHÍCULO
+    # ============================================================
 
     tipo_vehiculo = ''
 
@@ -961,75 +1351,183 @@ def exportar_formato_mantenimiento(vehiculo_id):
         tipo_vehiculo = getattr(
             vehiculo.tipo_vehiculo,
             'nombre',
-            str(vehiculo.tipo_vehiculo)
+            str(
+                vehiculo.tipo_vehiculo
+            )
         )
+
+    # ============================================================
+    # DATOS VEHÍCULO
+    # ============================================================
 
     datos = [
 
-        ('CLASE VEHÍCULO', tipo_vehiculo),
-        ('MODELO', str(vehiculo.modelo or '')),
+        (
+            'CLASE VEHÍCULO',
+            tipo_vehiculo
+        ),
 
-        ('PLACA', str(vehiculo.placa or '')),
-        ('MARCA', str(vehiculo.marca or '')),
+        (
+            'MODELO',
+            str(
+                vehiculo.modelo or ''
+            )
+        ),
 
-        ('KILÓMETRAJE', str(vehiculo.km_actual or '')),
-        ('ESTADO', str(getattr(vehiculo, 'estado', 'ACTIVO')))
+        (
+            'PLACA',
+            str(
+                vehiculo.placa or ''
+            )
+        ),
+
+        (
+            'MARCA',
+            str(
+                vehiculo.marca or ''
+            )
+        ),
+
+        (
+            'KILOMETRAJE ACTUAL',
+            (
+                f"{float(vehiculo.km_actual):,.0f} km"
+                if vehiculo.km_actual is not None
+                else ''
+            )
+        ),
+
+        (
+            'ESTADO',
+            str(
+                getattr(
+                    vehiculo,
+                    'estado',
+                    'ACTIVO'
+                )
+                or 'ACTIVO'
+            )
+        )
 
     ]
 
     posiciones = [
 
-        ('A7:B7', 'C7:E7'),
-        ('F7:G7', 'H7:K7'),
+        (
+            'A7:B7',
+            'C7:E7'
+        ),
 
-        ('A9:B9', 'C9:E9'),
-        ('F9:G9', 'H9:K9'),
+        (
+            'F7:G7',
+            'H7:M7'
+        ),
 
-        ('A11:B11', 'C11:E11'),
-        ('F11:G11', 'H11:K11')
+        (
+            'A9:B9',
+            'C9:E9'
+        ),
+
+        (
+            'F9:G9',
+            'H9:M9'
+        ),
+
+        (
+            'A11:B11',
+            'C11:E11'
+        ),
+
+        (
+            'F11:G11',
+            'H11:M11'
+        )
 
     ]
 
-    for i, (label_pos, value_pos) in enumerate(posiciones):
+    for i, (
+        label_pos,
+        value_pos
+    ) in enumerate(
+        posiciones
+    ):
 
         label, value = datos[i]
 
-        ws.merge_cells(label_pos)
+        # --------------------------------------------------------
+        # LABEL
+        # --------------------------------------------------------
 
-        label_cell = label_pos.split(':')[0]
+        ws.merge_cells(
+            label_pos
+        )
+
+        label_cell = (
+            label_pos.split(':')[0]
+        )
 
         ws[label_cell] = label
 
-        ws[label_cell].fill = azul_claro
+        ws[label_cell].fill = (
+            fill_gold_light
+        )
 
-        ws[label_cell].font = bold
+        ws[label_cell].font = (
+            font_label
+        )
 
-        ws[label_cell].alignment = center
+        ws[label_cell].alignment = (
+            center
+        )
 
-        ws[label_cell].border = border
+        aplicar_borde_rango(
+            ws,
+            label_pos,
+            border
+        )
 
-        ws.merge_cells(value_pos)
+        # --------------------------------------------------------
+        # VALOR
+        # --------------------------------------------------------
 
-        value_cell = value_pos.split(':')[0]
+        ws.merge_cells(
+            value_pos
+        )
+
+        value_cell = (
+            value_pos.split(':')[0]
+        )
 
         ws[value_cell] = value
 
-        ws[value_cell].fill = gris
+        ws[value_cell].fill = (
+            fill_gray
+        )
 
-        ws[value_cell].font = normal
+        ws[value_cell].font = (
+            font_value
+        )
 
-        ws[value_cell].alignment = center
+        ws[value_cell].alignment = (
+            center
+        )
 
-        ws[value_cell].border = border
+        aplicar_borde_rango(
+            ws,
+            value_pos,
+            border
+        )
 
-    # =================================================
-    # HEADER TABLA
-    # =================================================
+    # ============================================================
+    # ENCABEZADO TABLA
+    # ============================================================
 
     headers = [
 
         'FECHA',
-        
+
+        'KILOMETRAJE\nDEL MANTENIMIENTO',
+
         'SISTEMA',
 
         'DESCRIPCIÓN DETALLADA DEL\nMANTENIMIENTO',
@@ -1048,140 +1546,260 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
     merges = [
 
-        'A14:A15',   # Fecha
+        'A14:A15',
 
-        'B14:B15',   # Sistema
+        'B14:B15',
 
-        'C14:F15',   # Descripción
+        'C14:C15',
 
-        'G14:H15',   # Insumos
+        'D14:G15',
 
-        'I14:I15',   # Responsable
+        'H14:I15',
 
-        'J14:J15',   # Preventivo
+        'J14:J15',
 
-        'K14:K15',   # Correctivo
+        'K14:K15',
 
-        'L14:L15'    # Soporte
+        'L14:L15',
+
+        'M14:M15'
 
     ]
 
-    for i, merge in enumerate(merges):
+    for i, merge in enumerate(
+        merges
+    ):
 
-        ws.merge_cells(merge)
+        ws.merge_cells(
+            merge
+        )
 
         cell = merge.split(':')[0]
 
         ws[cell] = headers[i]
 
-        ws[cell].fill = azul_header
+        ws[cell].fill = fill_navy_2
 
-        ws[cell].font = Font(
-            bold=True,
-            size=9
-        )
+        ws[cell].font = font_header
 
         ws[cell].alignment = center
 
-        ws[cell].border = border
+        aplicar_borde_rango(
+            ws,
+            merge,
+            border_navy
+        )
 
-    ws.row_dimensions[14].height = 38
-    ws.row_dimensions[15].height = 38
+    # ============================================================
+    # CONVENCIONES DE SISTEMAS
+    # ============================================================
 
-    # =================================================
-    # DICCIONARIO DE CONVENCIONES (Para Iniciales)
-    # =================================================
     mapa_sistemas = {
+
         'SISTEMA DE LUBRICACIÓN': 'SL',
+
         'SISTEMA DE COMBUSTIBLE': 'SC',
+
         'SISTEMA ELÉCTRICO': 'SEL',
+
         'SISTEMA DE FRENOS': 'SF',
+
         'SISTEMA DE TRANSMISIÓN': 'ST',
+
         'SISTEMA DE DIRECCIÓN': 'SD',
+
         'SISTEMA DE MOTOR': 'SM',
+
         'SISTEMA DE SUSPENSIÓN': 'SS',
+
         'SISTEMA DE ESCAPE': 'SES',
+
         'SISTEMA DE LLANTAS': 'SLL'
+
     }
 
-    # =================================================
+    # ============================================================
     # TABLA MANTENIMIENTOS
-    # =================================================
+    # ============================================================
 
     fila_actual = 16
 
     for m in mantenimientos[:18]:
 
-        # =================================================
-        # FECHA DEL MANTENIMIENTO
-        # =================================================
+        # ========================================================
+        # FECHA
+        # ========================================================
 
         if m.fecha:
 
-            if hasattr(m.fecha, 'strftime'):
+            if hasattr(
+                m.fecha,
+                'strftime'
+            ):
 
-                ws[f'A{fila_actual}'] = (
-                    m.fecha.strftime('%d/%m/%Y')
+                ws[
+                    f'A{fila_actual}'
+                ] = (
+                    m.fecha.strftime(
+                        '%d/%m/%Y'
+                    )
                 )
 
             else:
 
-                ws[f'A{fila_actual}'] = str(m.fecha)
+                ws[
+                    f'A{fila_actual}'
+                ] = str(
+                    m.fecha
+                )
 
         else:
 
-            ws[f'A{fila_actual}'] = ''
+            ws[
+                f'A{fila_actual}'
+            ] = ''
 
+        # ========================================================
+        # KILOMETRAJE DEL MANTENIMIENTO
+        # ========================================================
 
-        # =================================================
-        # SISTEMA (Conversión automática a iniciales)
-        # =================================================
-
-        sistema_nombre = getattr(m.plan_item, 'sistema', '') or ''
-        # Limpiamos espacios y convertimos a mayúsculas para asegurar coincidencia técnica
-        sistema_key = str(sistema_nombre).strip().upper()
-        
-        # Si coincide con el diccionario ponemos la sigla, si no, dejamos el valor original
-        ws[f'B{fila_actual}'] = mapa_sistemas.get(sistema_key, sistema_nombre)
-        
-        # =================================================
-        # DESCRIPCIÓN DEL MANTENIMIENTO
-        # =================================================
-
-        ws.merge_cells(
-            f'C{fila_actual}:F{fila_actual}'
+        km_mantenimiento = getattr(
+            m,
+            'km',
+            None
         )
 
-        descripcion = ""
+        # --------------------------------------------------------
+        # RESPALDO
+        # --------------------------------------------------------
 
-        if getattr(m.plan_item, 'nombre', None):
+        if km_mantenimiento is None:
 
-            descripcion += (
-                f"{m.plan_item.nombre}"
+            km_mantenimiento = getattr(
+                m,
+                'kilometraje',
+                None
             )
 
-        if getattr(m, 'observaciones', None):
+        if km_mantenimiento is not None:
+
+            try:
+
+                # Guardamos como número REAL de Excel
+                ws[
+                    f'B{fila_actual}'
+                ] = float(
+                    km_mantenimiento
+                )
+
+                # Formato visual
+                ws[
+                    f'B{fila_actual}'
+                ].number_format = (
+                    '#,##0 "km"'
+                )
+
+            except Exception:
+
+                ws[
+                    f'B{fila_actual}'
+                ] = str(
+                    km_mantenimiento
+                )
+
+        else:
+
+            ws[
+                f'B{fila_actual}'
+            ] = ''
+
+        # ========================================================
+        # SISTEMA
+        # ========================================================
+
+        sistema_nombre = getattr(
+            m.plan_item,
+            'sistema',
+            ''
+        ) or ''
+
+        sistema_key = str(
+            sistema_nombre
+        ).strip().upper()
+
+        ws[
+            f'C{fila_actual}'
+        ] = (
+            mapa_sistemas.get(
+                sistema_key,
+                sistema_nombre
+            )
+        )
+
+        # ========================================================
+        # DESCRIPCIÓN
+        # ========================================================
+
+        rango_descripcion = (
+            f'D{fila_actual}:G{fila_actual}'
+        )
+
+        ws.merge_cells(
+            rango_descripcion
+        )
+
+        descripcion = ''
+
+        if getattr(
+            m.plan_item,
+            'nombre',
+            None
+        ):
+
+            descripcion += str(
+                m.plan_item.nombre
+            )
+
+        if getattr(
+            m,
+            'observaciones',
+            None
+        ):
 
             if descripcion:
 
-                descripcion += "\n\n"
+                descripcion += '\n\n'
 
             descripcion += (
-                f"Observaciones: {m.observaciones}"
+                'Observaciones: '
+                f'{m.observaciones}'
             )
 
-        ws[f'C{fila_actual}'] = descripcion
+        ws[
+            f'D{fila_actual}'
+        ] = descripcion
 
-        # =================================================
-        # INSUMOS / REPUESTOS
-        # (Actualmente se usa proveedor)
-        # =================================================
-
-        ws.merge_cells(
-            f'G{fila_actual}:H{fila_actual}'
+        aplicar_borde_rango(
+            ws,
+            rango_descripcion,
+            border
         )
 
-        ws[f'G{fila_actual}'] = (
+        # ========================================================
+        # INSUMOS / REPUESTOS
+        # ========================================================
+
+        rango_insumos = (
+            f'H{fila_actual}:I{fila_actual}'
+        )
+
+        ws.merge_cells(
+            rango_insumos
+        )
+
+        ws[
+            f'H{fila_actual}'
+        ] = (
             str(
                 getattr(
                     m,
@@ -1191,11 +1809,19 @@ def exportar_formato_mantenimiento(vehiculo_id):
             )
         )
 
-        # =================================================
-        # RESPONSABLE
-        # =================================================
+        aplicar_borde_rango(
+            ws,
+            rango_insumos,
+            border
+        )
 
-        ws[f'I{fila_actual}'] = (
+        # ========================================================
+        # RESPONSABLE
+        # ========================================================
+
+        ws[
+            f'J{fila_actual}'
+        ] = (
             str(
                 getattr(
                     m,
@@ -1205,31 +1831,63 @@ def exportar_formato_mantenimiento(vehiculo_id):
             )
         )
 
-        # =================================================
-        # PREVENTIVO / CORRECTIVO
-        # =================================================
+        # ========================================================
+        # TIPO DE MANTENIMIENTO
+        # ========================================================
 
-        if (
-            str(
+        tipo_mantenimiento = str(
+            getattr(
+                m,
+                'type',
                 getattr(
                     m,
-                    'type' if hasattr(m, 'type') else 'tipo', 
+                    'tipo',
                     ''
                 )
-            ).upper()
-            ==
-            'PREVENTIVO'
-        ):
+            ) or ''
+        ).upper()
 
-            ws[f'J{fila_actual}'] = '✔'
+        if tipo_mantenimiento == 'PREVENTIVO':
 
-        else:
+            ws[
+                f'K{fila_actual}'
+            ] = '✓'
 
-            ws[f'K{fila_actual}'] = '✔'
+            ws[
+                f'K{fila_actual}'
+            ].fill = fill_green
 
-        # =================================================
+            ws[
+                f'K{fila_actual}'
+            ].font = Font(
+                name='Aptos',
+                bold=True,
+                size=14,
+                color=GREEN
+            )
+
+        elif tipo_mantenimiento == 'CORRECTIVO':
+
+            ws[
+                f'L{fila_actual}'
+            ] = '✓'
+
+            ws[
+                f'L{fila_actual}'
+            ].fill = fill_orange
+
+            ws[
+                f'L{fila_actual}'
+            ].font = Font(
+                name='Aptos',
+                bold=True,
+                size=14,
+                color=ORANGE
+            )
+
+        # ========================================================
         # SOPORTE
-        # =================================================
+        # ========================================================
 
         if m.soporte:
 
@@ -1238,7 +1896,9 @@ def exportar_formato_mantenimiento(vehiculo_id):
                 m.soporte
             )
 
-            if os.path.exists(ruta_imagen):
+            if os.path.exists(
+                ruta_imagen
+            ):
 
                 try:
 
@@ -1246,69 +1906,125 @@ def exportar_formato_mantenimiento(vehiculo_id):
                         ruta_imagen
                     )
 
+                    # Mantener tamaño profesional
                     img.width = 180
                     img.height = 140
 
                     ws.add_image(
                         img,
-                        f'L{fila_actual}'
+                        f'M{fila_actual}'
                     )
 
-                except Exception:
+                except Exception as e:
 
-                    pass
+                    print(
+                        'Error cargando soporte:',
+                        e
+                    )
 
-        # =================================================
-        # ESTILOS CELDAS (A hasta L -> 1 hasta 12)
-        # =================================================
+            else:
 
-        for col in range(1, 13):
+                ws[
+                    f'M{fila_actual}'
+                ] = (
+                    'Archivo no disponible'
+                )
+
+        # ========================================================
+        # ESTILOS GENERALES DE FILA
+        # ========================================================
+
+        for col in range(
+            1,
+            14
+        ):
 
             cell = ws.cell(
                 row=fila_actual,
                 column=col
             )
 
-            cell.border = border
+            # ----------------------------------------------------
+            # Borde general
+            # ----------------------------------------------------
 
-            cell.alignment = Alignment(
-                horizontal='center',
-                vertical='center',
-                wrap_text=True
-            )
+            if cell.border == Border():
 
-            cell.font = normal
+                cell.border = border
 
-        # La descripción queda alineada a la izquierda
-        ws[f'C{fila_actual}'].alignment = left
+            # ----------------------------------------------------
+            # Alineación
+            # ----------------------------------------------------
 
-        # Fecha centrada
-        ws[f'A{fila_actual}'].alignment = center
+            cell.alignment = center
 
-        # Colorear filas pares
-        if fila_actual % 2 == 0:
+            # ----------------------------------------------------
+            # Fuente
+            # ----------------------------------------------------
 
-            for col in range(1, 13):
+            if not cell.font.bold:
 
-                ws.cell(
-                    row=fila_actual,
-                    column=col
-                ).fill = gris
+                cell.font = font_normal
 
-        # Altura suficiente para texto + imagen
+            # ----------------------------------------------------
+            # Fondo alternado
+            # ----------------------------------------------------
+
+            if (
+                fila_actual % 2 == 0
+                and cell.fill.fill_type is None
+            ):
+
+                cell.fill = fill_gray
+
+        # ========================================================
+        # DESCRIPCIÓN A LA IZQUIERDA
+        # ========================================================
+
+        ws[
+            f'D{fila_actual}'
+        ].alignment = left
+
+        # ========================================================
+        # KILOMETRAJE
+        # ========================================================
+
+        ws[
+            f'B{fila_actual}'
+        ].alignment = center
+
+        ws[
+            f'B{fila_actual}'
+        ].font = font_km
+
+        # ========================================================
+        # FECHA
+        # ========================================================
+
+        ws[
+            f'A{fila_actual}'
+        ].alignment = center
+
+        # ========================================================
+        # ALTURA
+        # ========================================================
+
         ws.row_dimensions[
             fila_actual
         ].height = 110
 
         fila_actual += 1
 
-    # =================================================
-    # FILAS VACÍAS (Hasta columna L -> 12)
-    # =================================================
+    # ============================================================
+    # FILAS VACÍAS
+    # ============================================================
 
     while fila_actual <= 34:
 
-        for col in range(1, 13):
+        for col in range(
+            1,
+            14
+        ):
 
             cell = ws.cell(
                 row=fila_actual,
@@ -1319,41 +2035,77 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
             cell.alignment = center
 
-            cell.font = normal
+            cell.font = font_normal
 
-            if fila_actual % 2 == 0:
+            if (
+                fila_actual % 2 == 0
+            ):
 
-                cell.fill = gris
+                cell.fill = fill_gray
 
-        ws.row_dimensions[fila_actual].height = 30
+        ws.row_dimensions[
+            fila_actual
+        ].height = 30
 
         fila_actual += 1
 
-    # =================================================
-    # TABLA CONVENCIONES
-    # =================================================
+    # ============================================================
+    # TABLA DE CONVENCIONES
+    # ============================================================
 
-    ws.merge_cells('A36:K36')
+    rango_convenciones = 'A36:M36'
 
-    ws['A36'] = (
-        'TABLA DE CONVENCIONES - SISTEMAS DE MANTENIMIENTO'
+    ws.merge_cells(
+        rango_convenciones
     )
 
-    ws['A36'].fill = azul_oscuro
+    ws['A36'] = (
+        'TABLA DE CONVENCIONES • '
+        'SISTEMAS DE MANTENIMIENTO'
+    )
 
-    ws['A36'].font = subtitulo_font
+    ws['A36'].fill = fill_navy
+
+    ws['A36'].font = font_section
 
     ws['A36'].alignment = center
 
-    ws['A36'].border = border
+    aplicar_borde_rango(
+        ws,
+        rango_convenciones,
+        border_navy
+    )
+
+    # ============================================================
+    # CONVENCIONES IZQUIERDA
+    # ============================================================
 
     convenciones = [
 
-        ('SISTEMA DE LUBRICACIÓN', 'SL'),
-        ('SISTEMA DE COMBUSTIBLE', 'SC'),
-        ('SISTEMA ELÉCTRICO', 'SEL'),
-        ('SISTEMA DE FRENOS', 'SF'),
-        ('SISTEMA DE TRANSMISIÓN', 'ST'),
+        (
+            'SISTEMA DE LUBRICACIÓN',
+            'SL'
+        ),
+
+        (
+            'SISTEMA DE COMBUSTIBLE',
+            'SC'
+        ),
+
+        (
+            'SISTEMA ELÉCTRICO',
+            'SEL'
+        ),
+
+        (
+            'SISTEMA DE FRENOS',
+            'SF'
+        ),
+
+        (
+            'SISTEMA DE TRANSMISIÓN',
+            'ST'
+        )
 
     ]
 
@@ -1361,32 +2113,93 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
     for nombre, sigla in convenciones:
 
-        ws.merge_cells(
+        rango_nombre = (
             f'A{fila_conv}:C{fila_conv}'
         )
 
-        ws[f'A{fila_conv}'] = nombre
+        ws.merge_cells(
+            rango_nombre
+        )
 
-        ws[f'D{fila_conv}'] = sigla
+        ws[
+            f'A{fila_conv}'
+        ] = nombre
 
-        ws[f'A{fila_conv}'].border = border
-        ws[f'D{fila_conv}'].border = border
+        ws[
+            f'D{fila_conv}'
+        ] = sigla
 
-        ws[f'A{fila_conv}'].alignment = center
-        ws[f'D{fila_conv}'].alignment = center
+        ws[
+            f'A{fila_conv}'
+        ].fill = fill_gold_light
 
-        ws[f'A{fila_conv}'].fill = azul_claro
-        ws[f'D{fila_conv}'].fill = gris
+        ws[
+            f'D{fila_conv}'
+        ].fill = fill_gray
+
+        ws[
+            f'A{fila_conv}'
+        ].font = font_label
+
+        ws[
+            f'D{fila_conv}'
+        ].font = Font(
+            name='Aptos',
+            bold=True,
+            size=9,
+            color=NAVY
+        )
+
+        ws[
+            f'A{fila_conv}'
+        ].alignment = center
+
+        ws[
+            f'D{fila_conv}'
+        ].alignment = center
+
+        aplicar_borde_rango(
+            ws,
+            rango_nombre,
+            border
+        )
+
+        ws[
+            f'D{fila_conv}'
+        ].border = border
 
         fila_conv += 1
 
+    # ============================================================
+    # CONVENCIONES DERECHA
+    # ============================================================
+
     convenciones2 = [
 
-        ('SISTEMA DE DIRECCIÓN', 'SD'),
-        ('SISTEMA DE MOTOR', 'SM'),
-        ('SISTEMA DE SUSPENSIÓN', 'SS'),
-        ('SISTEMA DE ESCAPE', 'SES'),
-        ('SISTEMA DE LLANTAS', 'SLL'),
+        (
+            'SISTEMA DE DIRECCIÓN',
+            'SD'
+        ),
+
+        (
+            'SISTEMA DE MOTOR',
+            'SM'
+        ),
+
+        (
+            'SISTEMA DE SUSPENSIÓN',
+            'SS'
+        ),
+
+        (
+            'SISTEMA DE ESCAPE',
+            'SES'
+        ),
+
+        (
+            'SISTEMA DE LLANTAS',
+            'SLL'
+        )
 
     ]
 
@@ -1394,32 +2207,108 @@ def exportar_formato_mantenimiento(vehiculo_id):
 
     for nombre, sigla in convenciones2:
 
-        ws.merge_cells(
+        rango_nombre = (
             f'F{fila_conv}:H{fila_conv}'
         )
 
-        ws[f'F{fila_conv}'] = nombre
+        ws.merge_cells(
+            rango_nombre
+        )
 
-        ws[f'I{fila_conv}'] = sigla
+        ws[
+            f'F{fila_conv}'
+        ] = nombre
 
-        ws[f'F{fila_conv}'].border = border
-        ws[f'I{fila_conv}'].border = border
+        ws[
+            f'I{fila_conv}'
+        ] = sigla
 
-        ws[f'F{fila_conv}'].alignment = center
-        ws[f'I{fila_conv}'].alignment = center
+        ws[
+            f'F{fila_conv}'
+        ].fill = fill_gold_light
 
-        ws[f'F{fila_conv}'].fill = azul_claro
-        ws[f'I{fila_conv}'].fill = gris
+        ws[
+            f'I{fila_conv}'
+        ].fill = fill_gray
+
+        ws[
+            f'F{fila_conv}'
+        ].font = font_label
+
+        ws[
+            f'I{fila_conv}'
+        ].font = Font(
+            name='Aptos',
+            bold=True,
+            size=9,
+            color=NAVY
+        )
+
+        ws[
+            f'F{fila_conv}'
+        ].alignment = center
+
+        ws[
+            f'I{fila_conv}'
+        ].alignment = center
+
+        aplicar_borde_rango(
+            ws,
+            rango_nombre,
+            border
+        )
+
+        ws[
+            f'I{fila_conv}'
+        ].border = border
 
         fila_conv += 1
-        
-    # =================================================
+
+    # ============================================================
+    # PIE DE PÁGINA
+    # ============================================================
+
+    ws.oddFooter.center.text = (
+        'IntelliFeet • '
+        'Gestión de Mantenimiento Vehicular'
+    )
+
+    ws.oddFooter.center.size = 8
+
+    ws.oddFooter.center.font = 'Aptos'
+
+    ws.oddFooter.right.text = (
+        'Página &[Page] de &[Pages]'
+    )
+
+    ws.oddFooter.right.size = 8
+
+    ws.oddFooter.right.font = 'Aptos'
+
+    # ============================================================
+    # IMPORTANTE:
+    # NO USAMOS freeze_panes
+    #
+    # De esta forma el encabezado NO queda fijo al hacer scroll.
+    # ============================================================
+
+    # ws.freeze_panes = 'A16'
+
+    # ============================================================
+    # CONFIGURACIÓN DE IMPRESIÓN
+    # ============================================================
+
+    ws.print_area = 'A1:M42'
+
+    # ============================================================
     # EXPORTAR
-    # =================================================
+    # ============================================================
 
     output = BytesIO()
 
-    wb.save(output)
+    wb.save(
+        output
+    )
 
     output.seek(0)
 
@@ -1428,7 +2317,7 @@ def exportar_formato_mantenimiento(vehiculo_id):
         output,
 
         download_name=(
-            f'FORMATO_MANTENIMIENTO_'
+            'FORMATO_MANTENIMIENTO_'
             f'{vehiculo.placa}.xlsx'
         ),
 
@@ -1439,7 +2328,7 @@ def exportar_formato_mantenimiento(vehiculo_id):
             'officedocument.spreadsheetml.sheet'
         )
     )
-   
+
 @reportes_bp.route(
     '/alertas-formato/<int:vehiculo_id>',
     methods=['GET']

@@ -5793,7 +5793,147 @@ class InspeccionService:
 
         return buffer
  
-    
+    @staticmethod
+    def obtener_libro_preoperacionales(
+        vehiculo_id=None,
+        anio=None,
+        mes=None,
+        maquinaria_id=None
+    ):
+        """
+        Obtiene las inspecciones FINALIZADAS de un mes específico
+        para un vehículo o maquinaria.
+
+        Esta función alimenta el PDF del libro de
+        preoperacionales.
+        """
+
+        # =========================================================
+        # VALIDACIONES
+        # =========================================================
+
+        if not anio or not mes:
+            raise ValueError(
+                "El año y el mes son obligatorios."
+            )
+
+        # =========================================================
+        # CONSULTA BASE
+        # =========================================================
+
+        consulta = Inspeccion.query.options(
+
+            # -----------------------------------------------------
+            # USUARIO / OPERADOR
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.usuario
+            ),
+
+            # -----------------------------------------------------
+            # VEHÍCULO
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.vehiculo
+            ),
+
+            # -----------------------------------------------------
+            # MAQUINARIA
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.maquinaria
+            ),
+
+            # -----------------------------------------------------
+            # ANOMALÍAS
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.anomalias
+            ),
+
+            # -----------------------------------------------------
+            # RESPUESTAS → ÍTEM → CATEGORÍA
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.respuestas
+            )
+            .joinedload(
+                InspeccionRespuesta.item
+            )
+            .joinedload(
+                InspeccionItem.categoria
+            ),
+
+            # -----------------------------------------------------
+            # RESPUESTAS → FOTOS
+            # -----------------------------------------------------
+
+            joinedload(
+                Inspeccion.respuestas
+            )
+            .joinedload(
+                InspeccionRespuesta.fotos
+            ),
+
+        ).filter(
+
+            # -----------------------------------------------------
+            # MES
+            # -----------------------------------------------------
+
+            func.month(
+                Inspeccion.hora_inicio
+            ) == mes,
+
+            # -----------------------------------------------------
+            # AÑO
+            # -----------------------------------------------------
+
+            func.year(
+                Inspeccion.hora_inicio
+            ) == anio,
+
+            # -----------------------------------------------------
+            # SOLO FINALIZADAS
+            # -----------------------------------------------------
+
+            Inspeccion.estado == "FINALIZADA",
+
+        )
+
+        # =========================================================
+        # FILTRO VEHÍCULO
+        # =========================================================
+
+        if vehiculo_id:
+
+            consulta = consulta.filter(
+                Inspeccion.vehiculo_id == vehiculo_id
+            )
+
+        # =========================================================
+        # FILTRO MAQUINARIA
+        # =========================================================
+
+        if maquinaria_id:
+
+            consulta = consulta.filter(
+                Inspeccion.maquinaria_id == maquinaria_id
+            )
+
+        # =========================================================
+        # RESULTADO
+        # =========================================================
+
+        return consulta.order_by(
+            Inspeccion.hora_inicio.asc()
+        ).all()
+        
     @staticmethod
     def obtener_libro_preoperacionales_semanal(
         fecha_inicio,
@@ -5951,14 +6091,99 @@ class InspeccionService:
 
             pagesize=landscape(A4),
 
-            leftMargin=15,
-            rightMargin=15,
-            topMargin=15,
-            bottomMargin=15,
+            leftMargin=18,
+            rightMargin=18,
+            topMargin=18,
+            bottomMargin=18,
+
+            title="Inspección Pre-operacional",
+            author="IntelliFeet",
 
         )
 
         estilos = getSampleStyleSheet()
+
+        # =========================================================
+        # COLORES CORPORATIVOS INTELLIFEET
+        # =========================================================
+
+        NAVY = colors.HexColor(
+            "#0B1F33"
+        )
+
+        NAVY_2 = colors.HexColor(
+            "#132F4C"
+        )
+
+        NAVY_3 = colors.HexColor(
+            "#1B3A57"
+        )
+
+        GOLD = colors.HexColor(
+            "#B58A32"
+        )
+
+        GOLD_LIGHT = colors.HexColor(
+            "#F3E8C8"
+        )
+
+        GOLD_SOFT = colors.HexColor(
+            "#FBF7ED"
+        )
+
+        BLUE_LIGHT = colors.HexColor(
+            "#EAF2F8"
+        )
+
+        BLUE_SOFT = colors.HexColor(
+            "#F4F8FB"
+        )
+
+        GRAY_BORDER = colors.HexColor(
+            "#CBD5E1"
+        )
+
+        GRAY_LIGHT = colors.HexColor(
+            "#F8FAFC"
+        )
+
+        GRAY_MEDIUM = colors.HexColor(
+            "#E8ECF1"
+        )
+
+        GRAY_TEXT = colors.HexColor(
+            "#475569"
+        )
+
+        DARK = colors.HexColor(
+            "#17202A"
+        )
+
+        GREEN = colors.HexColor(
+            "#15803D"
+        )
+
+        GREEN_LIGHT = colors.HexColor(
+            "#DCFCE7"
+        )
+
+        RED = colors.HexColor(
+            "#B91C1C"
+        )
+
+        RED_LIGHT = colors.HexColor(
+            "#FEE2E2"
+        )
+
+        ORANGE = colors.HexColor(
+            "#B45309"
+        )
+
+        ORANGE_LIGHT = colors.HexColor(
+            "#FEF3C7"
+        )
+
+        WHITE = colors.white
 
         # =========================================================
         # ESTILOS
@@ -5968,63 +6193,123 @@ class InspeccionService:
             "NormalPequeno",
             parent=estilos["Normal"],
             fontName="Helvetica",
-            fontSize=6,
-            leading=7,
+            fontSize=6.5,
+            leading=8,
             alignment=TA_CENTER,
+            textColor=DARK,
+            spaceAfter=0,
+            spaceBefore=0,
         )
 
         estilo_item = ParagraphStyle(
             "Item",
             parent=estilos["Normal"],
             fontName="Helvetica",
-            fontSize=6,
-            leading=7,
+            fontSize=6.5,
+            leading=8,
             alignment=TA_LEFT,
+            textColor=DARK,
+            spaceAfter=0,
+            spaceBefore=0,
         )
 
         estilo_header = ParagraphStyle(
             "Header",
             parent=estilos["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=7,
-            leading=8,
+            fontSize=7.5,
+            leading=9,
             alignment=TA_CENTER,
+            textColor=WHITE,
+            spaceAfter=0,
+            spaceBefore=0,
+        )
+
+        estilo_header_grande = ParagraphStyle(
+            "HeaderGrande",
+            parent=estilos["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            leading=12,
+            alignment=TA_CENTER,
+            textColor=WHITE,
+            spaceAfter=0,
+            spaceBefore=0,
         )
 
         estilo_componente = ParagraphStyle(
             "Componente",
             parent=estilos["Normal"],
             fontName="Helvetica-Bold",
+            fontSize=6.8,
+            leading=8.5,
+            alignment=TA_LEFT,
+            textColor=NAVY,
+            spaceAfter=0,
+            spaceBefore=0,
+        )
+
+        estilo_dato = ParagraphStyle(
+            "Dato",
+            parent=estilos["Normal"],
+            fontName="Helvetica",
+            fontSize=7,
+            leading=9,
+            alignment=TA_LEFT,
+            textColor=DARK,
+        )
+
+        estilo_dato_centro = ParagraphStyle(
+            "DatoCentro",
+            parent=estilos["Normal"],
+            fontName="Helvetica",
+            fontSize=7,
+            leading=9,
+            alignment=TA_CENTER,
+            textColor=DARK,
+        )
+
+        estilo_label = ParagraphStyle(
+            "Label",
+            parent=estilos["Normal"],
+            fontName="Helvetica-Bold",
             fontSize=6.5,
             leading=8,
             alignment=TA_LEFT,
+            textColor=NAVY,
+        )
+
+        estilo_estado_ok = ParagraphStyle(
+            "EstadoOK",
+            parent=estilos["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=9,
+            alignment=TA_CENTER,
+            textColor=GREEN,
+        )
+
+        estilo_estado_no = ParagraphStyle(
+            "EstadoNO",
+            parent=estilos["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=9,
+            alignment=TA_CENTER,
+            textColor=RED,
+        )
+
+        estilo_estado_na = ParagraphStyle(
+            "EstadoNA",
+            parent=estilos["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=6.5,
+            leading=8,
+            alignment=TA_CENTER,
+            textColor=GRAY_TEXT,
         )
 
         elementos = []
-
-        # =========================================================
-        # COLORES
-        # =========================================================
-
-        AZUL_INTELLIFEET = colors.HexColor(
-            "#2563EB"
-        )
-
-        AZUL_OSCURO = colors.HexColor(
-            "#1E3A8A"
-        )
-
-        AZUL_CLARO = colors.HexColor(
-            "#DBEAFE"
-        )
-
-        AZUL_MUY_CLARO = colors.HexColor(
-            "#EFF6FF"
-        )
-
-        GRIS_FUTURO = colors.HexColor(
-            "#F8FAFC"
-        )
 
         # =========================================================
         # DETERMINAR TIPO DE ACTIVO
@@ -6111,13 +6396,19 @@ class InspeccionService:
 
         if os.path.exists(logo):
 
-            img = RLImage(
-                logo,
-                width=100,
-                height=45,
-            )
+            try:
 
-            img.hAlign = "CENTER"
+                img = RLImage(
+                    logo,
+                    width=145,
+                    height=58,
+                )
+
+                img.hAlign = "CENTER"
+
+            except Exception:
+
+                img = ""
 
         else:
 
@@ -6263,7 +6554,7 @@ class InspeccionService:
         )
 
         # =========================================================
-        # ENCABEZADO
+        # ENCABEZADO PRINCIPAL
         # =========================================================
 
         titulo_activo = (
@@ -6280,9 +6571,16 @@ class InspeccionService:
 
                 Paragraph(
 
-                    "<b>INSPECCIÓN PRE-OPERACIONAL</b><br/>"
+                    "<font size='11'><b>"
+                    "INSPECCIÓN PRE-OPERACIONAL"
+                    "</b></font><br/>"
+                    f"<font size='9'>"
                     f"<b>{titulo_activo}: "
-                    f"{nombre_activo}</b>",
+                    f"{nombre_activo}</b>"
+                    f"</font><br/>"
+                    "<font size='6.5'>"
+                    "CONTROL OPERACIONAL Y DE SEGURIDAD"
+                    "</font>",
 
                     estilo_header,
 
@@ -6290,8 +6588,15 @@ class InspeccionService:
 
                 Paragraph(
 
-                    "<b>HSE-FOR-022</b><br/>"
-                    "<b>Versión: 003</b>",
+                    "<font size='8'>"
+                    "<b>HSE-FOR-022</b>"
+                    "</font><br/>"
+                    "<font size='7'>"
+                    "Versión 003"
+                    "</font><br/>"
+                    "<font size='6'>"
+                    "FORMATO CONTROLADO"
+                    "</font>",
 
                     estilo_header,
 
@@ -6301,13 +6606,13 @@ class InspeccionService:
 
             colWidths=[
 
-                100,
-                450,
-                100,
+                150,
+                490,
+                110,
 
             ],
 
-            rowHeights=[55],
+            rowHeights=[68],
 
         )
 
@@ -6316,11 +6621,40 @@ class InspeccionService:
             TableStyle([
 
                 (
-                    "GRID",
+                    "BACKGROUND",
+                    (0, 0),
+                    (0, 0),
+                    NAVY,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (1, 0),
+                    (1, 0),
+                    NAVY,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (2, 0),
+                    (2, 0),
+                    NAVY_2,
+                ),
+
+                (
+                    "BOX",
                     (0, 0),
                     (-1, -1),
-                    0.6,
-                    colors.black,
+                    0.8,
+                    NAVY,
+                ),
+
+                (
+                    "INNERGRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.35,
+                    NAVY_3,
                 ),
 
                 (
@@ -6337,6 +6671,20 @@ class InspeccionService:
                     "CENTER",
                 ),
 
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    8,
+                ),
+
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    8,
+                ),
+
             ])
 
         )
@@ -6345,91 +6693,142 @@ class InspeccionService:
             encabezado
         )
 
+        # Línea dorada debajo del encabezado
+        linea_dorada = Table(
+            [[""]],
+            colWidths=[750],
+            rowHeights=[4],
+        )
+
+        linea_dorada.setStyle(
+            TableStyle([
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, -1),
+                    GOLD,
+                ),
+            ])
+        )
+
         elementos.append(
-            Spacer(1, 5)
+            linea_dorada
+        )
+
+        elementos.append(
+            Spacer(1, 7)
         )
 
         # =========================================================
-        # INFORMACIÓN
+        # INFORMACIÓN GENERAL
         # =========================================================
+
+        estado_semana = (
+
+            "SEMANA EN CURSO"
+
+            if inicio_semana <= hoy <= fin_semana
+
+            else
+
+            "SEMANA CERRADA"
+
+        )
 
         informacion = Table(
 
-            [[
+            [
 
-                Paragraph(
+                [
 
-                    f"<b>{titulo_activo}:</b> "
-                    f"{nombre_activo}",
-
-                    estilo_normal,
-
-                ),
-
-                Paragraph(
-
-                    f"<b>CONDUCTOR / OPERADOR:</b> "
-                    f"{nombre_operador}",
-
-                    estilo_normal,
-
-                ),
-
-                Paragraph(
-
-                    "<b>TIPO:</b> "
-                    "PRE-OPERACIONAL",
-
-                    estilo_normal,
-
-                ),
-
-            ], [
-
-                Paragraph(
-
-                    f"<b>SEMANA:</b> "
-                    f"{inicio_semana.strftime('%d/%m/%Y')} - "
-                    f"{fin_semana.strftime('%d/%m/%Y')}",
-
-                    estilo_normal,
-
-                ),
-
-                Paragraph(
-
-                    f"<b>FECHA CONSULTADA:</b> "
-                    f"{hoy.strftime('%d/%m/%Y')}",
-
-                    estilo_normal,
-
-                ),
-
-                Paragraph(
-
-                    (
-                        "<b>ESTADO:</b> "
-                        "SEMANA EN CURSO"
-
-                        if inicio_semana <= hoy <= fin_semana
-
-                        else
-
-                        "<b>ESTADO:</b> "
-                        "SEMANA CERRADA"
+                    Paragraph(
+                        "<b>ACTIVO</b>",
+                        estilo_label
                     ),
 
-                    estilo_normal,
+                    Paragraph(
+                        str(nombre_activo),
+                        estilo_dato
+                    ),
 
-                ),
+                    Paragraph(
+                        "<b>CONDUCTOR / OPERADOR</b>",
+                        estilo_label
+                    ),
 
-            ]],
+                    Paragraph(
+                        str(nombre_operador),
+                        estilo_dato
+                    ),
+
+                ],
+
+                [
+
+                    Paragraph(
+                        "<b>SEMANA</b>",
+                        estilo_label
+                    ),
+
+                    Paragraph(
+                        f"{inicio_semana.strftime('%d/%m/%Y')}"
+                        f" - "
+                        f"{fin_semana.strftime('%d/%m/%Y')}",
+                        estilo_dato
+                    ),
+
+                    Paragraph(
+                        "<b>TIPO</b>",
+                        estilo_label
+                    ),
+
+                    Paragraph(
+                        "PRE-OPERACIONAL",
+                        estilo_dato
+                    ),
+
+                ],
+
+                [
+
+                    Paragraph(
+                        "<b>FECHA CONSULTADA</b>",
+                        estilo_label
+                    ),
+
+                    Paragraph(
+                        hoy.strftime('%d/%m/%Y'),
+                        estilo_dato
+                    ),
+
+                    Paragraph(
+                        "<b>ESTADO</b>",
+                        estilo_label
+                    ),
+
+                    Paragraph(
+                        estado_semana,
+                        estilo_dato
+                    ),
+
+                ],
+
+            ],
 
             colWidths=[
 
-                220,
-                300,
-                130,
+                100,
+                275,
+                125,
+                250,
+
+            ],
+
+            rowHeights=[
+
+                23,
+                23,
+                23,
 
             ],
 
@@ -6440,11 +6839,47 @@ class InspeccionService:
             TableStyle([
 
                 (
-                    "GRID",
+                    "BACKGROUND",
+                    (0, 0),
+                    (0, -1),
+                    GOLD_SOFT,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (2, 0),
+                    (2, -1),
+                    GOLD_SOFT,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (1, 0),
+                    (1, -1),
+                    WHITE,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (3, 0),
+                    (3, -1),
+                    WHITE,
+                ),
+
+                (
+                    "BOX",
                     (0, 0),
                     (-1, -1),
-                    0.4,
-                    colors.black,
+                    0.55,
+                    GRAY_BORDER,
+                ),
+
+                (
+                    "INNERGRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.35,
+                    GRAY_BORDER,
                 ),
 
                 (
@@ -6452,6 +6887,20 @@ class InspeccionService:
                     (0, 0),
                     (-1, -1),
                     "MIDDLE",
+                ),
+
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7,
+                ),
+
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7,
                 ),
 
             ])
@@ -6463,7 +6912,7 @@ class InspeccionService:
         )
 
         elementos.append(
-            Spacer(1, 5)
+            Spacer(1, 7)
         )
 
         # =========================================================
@@ -6491,7 +6940,7 @@ class InspeccionService:
         encabezado_dias = [
 
             Paragraph(
-                "<b>ELEMENTO DE INSPECCIÓN</b>",
+                "<b>ELEMENTO DE<br/>INSPECCIÓN</b>",
                 estilo_header
             )
 
@@ -6505,8 +6954,12 @@ class InspeccionService:
 
                 Paragraph(
 
-                    f"<b>{nombres_dias[indice]}</b><br/>"
-                    f"{fecha.strftime('%d/%m')}",
+                    f"<font size='8'><b>"
+                    f"{nombres_dias[indice]}"
+                    f"</b></font><br/>"
+                    f"<font size='6.5'>"
+                    f"{fecha.strftime('%d/%m')}"
+                    f"</font>",
 
                     estilo_header
 
@@ -6586,9 +7039,9 @@ class InspeccionService:
 
                 Paragraph(
 
-                    str(
-                        nombre_categoria
-                    ).upper(),
+                    f"<b>"
+                    f"{str(nombre_categoria).upper()}"
+                    f"</b>",
 
                     estilo_componente
 
@@ -6649,6 +7102,10 @@ class InspeccionService:
 
                         marca = ""
 
+                        estilo_marca = (
+                            estilo_normal
+                        )
+
                     # =============================================
                     # SIN INSPECCIÓN
                     # =============================================
@@ -6656,6 +7113,10 @@ class InspeccionService:
                     elif valor is None:
 
                         marca = ""
+
+                        estilo_marca = (
+                            estilo_normal
+                        )
 
                     # =============================================
                     # CON RESPUESTA
@@ -6685,6 +7146,10 @@ class InspeccionService:
 
                             marca = "✓"
 
+                            estilo_marca = (
+                                estilo_estado_ok
+                            )
+
                         elif valor_normalizado in [
 
                             "NO",
@@ -6697,6 +7162,10 @@ class InspeccionService:
 
                             marca = "X"
 
+                            estilo_marca = (
+                                estilo_estado_no
+                            )
+
                         elif valor_normalizado in [
 
                             "N/A",
@@ -6707,17 +7176,25 @@ class InspeccionService:
 
                             marca = "N/A"
 
+                            estilo_marca = (
+                                estilo_estado_na
+                            )
+
                         else:
 
                             marca = str(
                                 valor
                             )
 
+                            estilo_marca = (
+                                estilo_normal
+                            )
+
                     fila.append(
 
                         Paragraph(
                             marca,
-                            estilo_normal
+                            estilo_marca
                         )
 
                     )
@@ -6738,9 +7215,9 @@ class InspeccionService:
 
         cantidad_dias = 7
 
-        ancho_total = 780
+        ancho_total = 750
 
-        ancho_item = 430
+        ancho_item = 420
 
         ancho_dia = (
 
@@ -6784,7 +7261,7 @@ class InspeccionService:
             ] = inspecciones_dia
 
         # =========================================================
-        # FILA DE SEPARACIÓN - CONTROL DIARIO
+        # FILA CONTROL DIARIO
         # =========================================================
 
         fila_control_diario = [
@@ -6814,7 +7291,7 @@ class InspeccionService:
         fila_control_diario_index = len(filas) - 1
 
         # =========================================================
-        # FILA KM/HORÓMETRO INICIAL
+        # FILA INICIAL
         # =========================================================
 
         fila_inicial = [
@@ -6832,7 +7309,7 @@ class InspeccionService:
         ]
 
         # =========================================================
-        # FILA KM/HORÓMETRO FINAL
+        # FILA FINAL
         # =========================================================
 
         fila_final = [
@@ -6856,7 +7333,7 @@ class InspeccionService:
         fila_firma = [
 
             Paragraph(
-                "<b>FIRMA</b>",
+                "<b>FIRMA DEL OPERADOR</b>",
                 estilo_item
             )
 
@@ -6911,13 +7388,13 @@ class InspeccionService:
                 continue
 
             # =====================================================
-            # PRIMERA INSPECCIÓN DEL DÍA
+            # PRIMERA INSPECCIÓN
             # =====================================================
 
             primera = inspecciones_dia[0]
 
             # =====================================================
-            # ÚLTIMA INSPECCIÓN DEL DÍA
+            # ÚLTIMA INSPECCIÓN
             # =====================================================
 
             ultima = inspecciones_dia[-1]
@@ -7015,8 +7492,8 @@ class InspeccionService:
                 fila_inicial.append(
 
                     Paragraph(
-                        f"{contador_inicial} h",
-                        estilo_normal
+                        f"<b>{contador_inicial} h</b>",
+                        estilo_dato_centro
                     )
 
                 )
@@ -7026,8 +7503,8 @@ class InspeccionService:
                 fila_inicial.append(
 
                     Paragraph(
-                        contador_inicial,
-                        estilo_normal
+                        f"<b>{contador_inicial}</b>",
+                        estilo_dato_centro
                     )
 
                 )
@@ -7041,8 +7518,8 @@ class InspeccionService:
                 fila_final.append(
 
                     Paragraph(
-                        f"{contador_final} h",
-                        estilo_normal
+                        f"<b>{contador_final} h</b>",
+                        estilo_dato_centro
                     )
 
                 )
@@ -7052,8 +7529,8 @@ class InspeccionService:
                 fila_final.append(
 
                     Paragraph(
-                        contador_final,
-                        estilo_normal
+                        f"<b>{contador_final}</b>",
+                        estilo_dato_centro
                     )
 
                 )
@@ -7138,8 +7615,8 @@ class InspeccionService:
 
                             ruta_real_firma,
 
-                            width=42,
-                            height=20
+                            width=52,
+                            height=25
 
                         )
 
@@ -7179,7 +7656,7 @@ class InspeccionService:
                 )
 
         # =========================================================
-        # AGREGAR LAS FILAS DIARIAS A LA MISMA MATRIZ
+        # AGREGAR FILAS DIARIAS
         # =========================================================
 
         filas.append(
@@ -7201,7 +7678,7 @@ class InspeccionService:
         fila_firma_index = len(filas) - 1
 
         # =========================================================
-        # CREAR TABLA COMPLETA
+        # CREAR TABLA
         # =========================================================
 
         tabla = Table(
@@ -7234,21 +7711,21 @@ class InspeccionService:
                 (0, 0),
                 (-1, -1),
                 0.35,
-                colors.black,
+                GRAY_BORDER,
             ),
 
             (
                 "BACKGROUND",
                 (0, 0),
                 (-1, 0),
-                AZUL_INTELLIFEET,
+                NAVY,
             ),
 
             (
                 "TEXTCOLOR",
                 (0, 0),
                 (-1, 0),
-                colors.white,
+                WHITE,
             ),
 
             (
@@ -7269,28 +7746,28 @@ class InspeccionService:
                 "LEFTPADDING",
                 (0, 0),
                 (-1, -1),
-                3,
+                4,
             ),
 
             (
                 "RIGHTPADDING",
                 (0, 0),
                 (-1, -1),
-                3,
+                4,
             ),
 
             (
                 "TOPPADDING",
                 (0, 0),
                 (-1, -1),
-                2,
+                3,
             ),
 
             (
                 "BOTTOMPADDING",
                 (0, 0),
                 (-1, -1),
-                2,
+                3,
             ),
 
         ]
@@ -7313,14 +7790,14 @@ class InspeccionService:
                     "BACKGROUND",
                     (0, fila_categoria),
                     (-1, fila_categoria),
-                    AZUL_CLARO,
+                    GOLD_LIGHT,
                 ),
 
                 (
                     "TEXTCOLOR",
                     (0, fila_categoria),
                     (-1, fila_categoria),
-                    AZUL_OSCURO,
+                    NAVY,
                 ),
 
                 (
@@ -7337,15 +7814,56 @@ class InspeccionService:
                     "LEFT",
                 ),
 
+                (
+                    "LEFTPADDING",
+                    (0, fila_categoria),
+                    (-1, fila_categoria),
+                    7,
+                ),
+
+                (
+                    "TOPPADDING",
+                    (0, fila_categoria),
+                    (-1, fila_categoria),
+                    4,
+                ),
+
+                (
+                    "BOTTOMPADDING",
+                    (0, fila_categoria),
+                    (-1, fila_categoria),
+                    4,
+                ),
+
             ])
 
         # =========================================================
-        # MARCAR DÍAS FUTUROS
+        # FILAS ALTERNADAS
         # =========================================================
-        #
-        # IMPORTANTE:
-        # Solo se aplica hasta la matriz de preguntas.
-        # No se pinta la sección de KM/FIRMA.
+
+        for indice_fila in range(
+            1,
+            fila_final_matriz + 1
+        ):
+
+            if indice_fila in filas_componentes:
+                continue
+
+            if indice_fila % 2 == 0:
+
+                estilos_tabla.append(
+
+                    (
+                        "BACKGROUND",
+                        (0, indice_fila),
+                        (-1, indice_fila),
+                        GRAY_LIGHT,
+                    )
+
+                )
+
+        # =========================================================
+        # DÍAS FUTUROS
         # =========================================================
 
         for indice_dia, fecha in enumerate(
@@ -7364,7 +7882,7 @@ class InspeccionService:
                             indice_dia,
                             fila_final_matriz
                         ),
-                        GRIS_FUTURO,
+                        GRAY_MEDIUM,
                     )
 
                 )
@@ -7385,14 +7903,14 @@ class InspeccionService:
                 "BACKGROUND",
                 (0, fila_control_diario_index),
                 (-1, fila_control_diario_index),
-                AZUL_MUY_CLARO,
+                NAVY_2,
             ),
 
             (
                 "TEXTCOLOR",
                 (0, fila_control_diario_index),
                 (-1, fila_control_diario_index),
-                AZUL_OSCURO,
+                WHITE,
             ),
 
             (
@@ -7406,14 +7924,14 @@ class InspeccionService:
                 "TOPPADDING",
                 (0, fila_control_diario_index),
                 (-1, fila_control_diario_index),
-                4,
+                5,
             ),
 
             (
                 "BOTTOMPADDING",
                 (0, fila_control_diario_index),
                 (-1, fila_control_diario_index),
-                4,
+                5,
             ),
 
         ])
@@ -7436,14 +7954,14 @@ class InspeccionService:
                     "BACKGROUND",
                     (0, fila_diaria),
                     (0, fila_diaria),
-                    AZUL_MUY_CLARO,
+                    GOLD_SOFT,
                 ),
 
                 (
                     "TEXTCOLOR",
                     (0, fila_diaria),
                     (0, fila_diaria),
-                    AZUL_OSCURO,
+                    NAVY,
                 ),
 
                 (
@@ -7464,20 +7982,20 @@ class InspeccionService:
                     "TOPPADDING",
                     (0, fila_diaria),
                     (-1, fila_diaria),
-                    3,
+                    4,
                 ),
 
                 (
                     "BOTTOMPADDING",
                     (0, fila_diaria),
                     (-1, fila_diaria),
-                    3,
+                    4,
                 ),
 
             ])
 
         # =========================================================
-        # FIRMA
+        # ALTURA FIRMA
         # =========================================================
 
         estilos_tabla.extend([
@@ -7486,14 +8004,14 @@ class InspeccionService:
                 "TOPPADDING",
                 (1, fila_firma_index),
                 (-1, fila_firma_index),
-                2,
+                5,
             ),
 
             (
                 "BOTTOMPADDING",
                 (1, fila_firma_index),
                 (-1, fila_firma_index),
-                2,
+                5,
             ),
 
         ])
@@ -7509,7 +8027,7 @@ class InspeccionService:
         )
 
         # =========================================================
-        # AGREGAR MATRIZ COMPLETA
+        # AGREGAR MATRIZ
         # =========================================================
 
         elementos.append(
@@ -7517,7 +8035,7 @@ class InspeccionService:
         )
 
         elementos.append(
-            Spacer(1, 8)
+            Spacer(1, 9)
         )
 
         # =========================================================
@@ -7544,7 +8062,7 @@ class InspeccionService:
 
                 observaciones_texto.append(
 
-                    f"{fecha_observacion} - "
+                    f"<b>{fecha_observacion}</b> - "
                     f"{inspeccion.observaciones_generales}"
 
                 )
@@ -7557,7 +8075,8 @@ class InspeccionService:
 
             if observaciones_texto
 
-            else ""
+            else
+            "Sin observaciones registradas."
 
         )
 
@@ -7568,7 +8087,7 @@ class InspeccionService:
                 [
 
                     Paragraph(
-                        "<b>OBSERVACIONES:</b>",
+                        "<b>OBSERVACIONES GENERALES</b>",
                         estilo_header
                     )
 
@@ -7590,8 +8109,8 @@ class InspeccionService:
             ],
 
             rowHeights=[
-                18,
-                40,
+                21,
+                45,
             ],
 
         )
@@ -7601,25 +8120,61 @@ class InspeccionService:
             TableStyle([
 
                 (
-                    "GRID",
+                    "BACKGROUND",
                     (0, 0),
-                    (-1, -1),
-                    0.4,
-                    colors.black,
+                    (-1, 0),
+                    NAVY_2,
+                ),
+
+                (
+                    "TEXTCOLOR",
+                    (0, 0),
+                    (-1, 0),
+                    WHITE,
                 ),
 
                 (
                     "BACKGROUND",
+                    (0, 1),
+                    (-1, 1),
+                    WHITE,
+                ),
+
+                (
+                    "BOX",
+                    (0, 0),
+                    (-1, -1),
+                    0.55,
+                    GRAY_BORDER,
+                ),
+
+                (
+                    "LINEBELOW",
                     (0, 0),
                     (-1, 0),
-                    AZUL_MUY_CLARO,
+                    0.35,
+                    GOLD,
                 ),
 
                 (
                     "VALIGN",
                     (0, 0),
                     (-1, -1),
-                    "TOP",
+                    "MIDDLE",
+                ),
+
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7,
+                ),
+
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7,
                 ),
 
             ])
@@ -7631,7 +8186,7 @@ class InspeccionService:
         )
 
         elementos.append(
-            Spacer(1, 5)
+            Spacer(1, 7)
         )
 
         # =========================================================
@@ -7648,12 +8203,12 @@ class InspeccionService:
                 ),
 
                 Paragraph(
-                    "SI ______",
+                    "<b>SI</b> &nbsp;&nbsp; ________",
                     estilo_normal
                 ),
 
                 Paragraph(
-                    "NO ______",
+                    "<b>NO</b> &nbsp;&nbsp; ________",
                     estilo_normal
                 ),
 
@@ -7668,7 +8223,7 @@ class InspeccionService:
             ],
 
             rowHeights=[
-                30
+                34
             ],
 
         )
@@ -7678,25 +8233,62 @@ class InspeccionService:
             TableStyle([
 
                 (
-                    "GRID",
+                    "BACKGROUND",
                     (0, 0),
-                    (-1, -1),
-                    0.4,
-                    colors.black,
+                    (0, 0),
+                    NAVY_2,
                 ),
 
                 (
                     "BACKGROUND",
-                    (0, 0),
-                    (0, 0),
-                    AZUL_MUY_CLARO,
+                    (1, 0),
+                    (1, 0),
+                    WHITE,
+                ),
+
+                (
+                    "BACKGROUND",
+                    (2, 0),
+                    (2, 0),
+                    WHITE,
                 ),
 
                 (
                     "TEXTCOLOR",
                     (0, 0),
+                    (0, 0),
+                    WHITE,
+                ),
+
+                (
+                    "TEXTCOLOR",
+                    (1, 0),
                     (-1, -1),
-                    AZUL_OSCURO,
+                    NAVY,
+                ),
+
+                (
+                    "BOX",
+                    (0, 0),
+                    (-1, -1),
+                    0.55,
+                    GRAY_BORDER,
+                ),
+
+                (
+                    "INNERGRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.35,
+                    GRAY_BORDER,
+                ),
+
+                (
+                    "LINEBELOW",
+                    (0, 0),
+                    (-1, 0),
+                    1,
+                    GOLD,
                 ),
 
                 (
@@ -7722,6 +8314,101 @@ class InspeccionService:
         )
 
         # =========================================================
+        # PIE DE DOCUMENTO
+        # =========================================================
+
+        elementos.append(
+            Spacer(1, 7)
+        )
+
+        pie = Table(
+
+            [[
+
+                Paragraph(
+                    "<b>IntelliFeet</b> · "
+                    "Gestión inteligente de flota",
+                    estilo_normal
+                ),
+
+                Paragraph(
+                    f"Semana "
+                    f"{inicio_semana.strftime('%d/%m/%Y')} "
+                    f"— "
+                    f"{fin_semana.strftime('%d/%m/%Y')}",
+                    estilo_normal
+                ),
+
+                Paragraph(
+                    "Documento de control operacional",
+                    estilo_normal
+                ),
+
+            ]],
+
+            colWidths=[
+
+                250,
+                250,
+                250,
+
+            ],
+
+            rowHeights=[
+                20
+            ],
+
+        )
+
+        pie.setStyle(
+
+            TableStyle([
+
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, -1),
+                    GRAY_LIGHT,
+                ),
+
+                (
+                    "TEXTCOLOR",
+                    (0, 0),
+                    (-1, -1),
+                    GRAY_TEXT,
+                ),
+
+                (
+                    "BOX",
+                    (0, 0),
+                    (-1, -1),
+                    0.35,
+                    GRAY_BORDER,
+                ),
+
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE",
+                ),
+
+                (
+                    "ALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "CENTER",
+                ),
+
+            ])
+
+        )
+
+        elementos.append(
+            pie
+        )
+
+        # =========================================================
         # GENERAR PDF
         # =========================================================
 
@@ -7732,7 +8419,8 @@ class InspeccionService:
         buffer.seek(0)
 
         return buffer
-    
+
+ 
     @staticmethod
     def descargar_excel_preoperacionales(
         mes, anio, vehiculo_id=None, maquinaria_id=None
