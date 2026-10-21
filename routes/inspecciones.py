@@ -1389,3 +1389,175 @@ def reporte_preoperacionales_semanal():
             "success": False,
             "message": str(e)
         }), 500
+        
+        
+
+# ==========================================================
+# ENDPOINTS MÓVILES - OFFLINE / SINCRONIZACIÓN
+# ==========================================================
+
+@inspecciones_bp.route(
+    "/movil/configuracion",
+    methods=["GET"]
+)
+@jwt_required()
+def configuracion_movil():
+
+    try:
+        usuario = obtener_usuario_actual()
+        usuario_id = usuario["id"]
+
+        data = InspeccionService.obtener_configuracion_movil(
+            usuario_id
+        )
+
+        return jsonify({
+            "success": True,
+            "data": data
+        }), 200
+
+    except Exception:
+        current_app.logger.exception(
+            "Error obteniendo configuración móvil"
+        )
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "No fue posible obtener la configuración móvil."
+            )
+        }), 500  
+
+
+
+# ==========================================================
+# SINCRONIZAR INSPECCIÓN MÓVIL
+# ==========================================================
+
+@inspecciones_bp.route(
+    "/movil/sincronizar",
+    methods=["POST"]
+)
+@jwt_required()
+def sincronizar_movil():
+
+    try:
+        import json
+
+        usuario = obtener_usuario_actual()
+
+        payload = request.form.get("payload")
+
+        if not payload:
+            return jsonify({
+                "success": False,
+                "message": (
+                    "Falta el campo payload de sincronización."
+                )
+            }), 400
+
+        try:
+            data = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "El payload JSON no es válido."
+            }), 400
+
+        if not isinstance(data, dict):
+            return jsonify({
+                "success": False,
+                "message": "El payload debe ser un objeto JSON."
+            }), 400
+
+        resultado = InspeccionService.sincronizar_movil(
+            usuario_id=usuario["id"],
+            data=data,
+            archivos=request.files
+        )
+
+        return jsonify({
+            "success": True,
+            "data": resultado
+        }), 200
+
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
+    except Exception:
+        current_app.logger.exception(
+            "Error sincronizando inspección móvil"
+        )
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "No fue posible sincronizar la inspección."
+            )
+        }), 500
+        
+        
+
+# ==========================================================
+# CONSULTAR ESTADO DE SINCRONIZACIÓN
+# ==========================================================
+
+@inspecciones_bp.route(
+    "/movil/sincronizacion/<string:uuid_sync>",
+    methods=["GET"]
+)
+@jwt_required()
+def consultar_sincronizacion(uuid_sync):
+
+    try:
+        usuario = obtener_usuario_actual()
+
+        inspeccion = (
+            InspeccionService.obtener_por_uuid_sync(
+                uuid_sync
+            )
+        )
+
+        if inspeccion is None:
+            return jsonify({
+                "success": True,
+                "data": {
+                    "existe": False,
+                    "uuid_sync": uuid_sync
+                }
+            }), 200
+
+        if inspeccion.usuario_id != usuario["id"]:
+            return jsonify({
+                "success": False,
+                "message": (
+                    "No tiene permiso para consultar "
+                    "esta inspección."
+                )
+            }), 403
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "existe": True,
+                "uuid_sync": inspeccion.uuid_sync,
+                "id": inspeccion.id,
+                "estado": inspeccion.estado,
+                "origen": inspeccion.origen
+            }
+        }), 200
+
+    except Exception:
+        current_app.logger.exception(
+            "Error consultando sincronización móvil"
+        )
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "No fue posible consultar la sincronización."
+            )
+        }), 500
