@@ -67,6 +67,7 @@ from flask import Blueprint, request, jsonify, send_file, current_app
 datetime.now(ZoneInfo("America/Bogota"))
 from openpyxl.drawing.image import Image
 
+
 class InspeccionService:
 
     # =====================================================
@@ -108,16 +109,13 @@ class InspeccionService:
         hoy = InspeccionService.obtener_fecha_hoy()
 
         return (
-            Inspeccion.query
-            .filter(
+            Inspeccion.query.filter(
                 Inspeccion.usuario_id == usuario_id,
                 Inspeccion.plantilla_id == plantilla_id,
                 db.func.date(Inspeccion.hora_inicio) == hoy,
                 Inspeccion.estado != "ANULADA",
             )
-            .order_by(
-                Inspeccion.id.desc()
-            )
+            .order_by(Inspeccion.id.desc())
             .first()
         )
 
@@ -193,7 +191,7 @@ class InspeccionService:
             return activo["activo"].horometro_actual
 
         return None
-    
+
     @staticmethod
     def obtener_plantilla(tipo_activo, tipo_id):
 
@@ -699,9 +697,7 @@ class InspeccionService:
             raise Exception("La inspección no existe.")
 
         if inspeccion.estado != "EN_PROCESO":
-            raise Exception(
-                "La inspección ya no permite modificar respuestas."
-            )
+            raise Exception("La inspección ya no permite modificar respuestas.")
 
         item = InspeccionItem.query.get(data["item_id"])
 
@@ -709,15 +705,13 @@ class InspeccionService:
             raise Exception("Item no encontrado.")
 
         respuesta = InspeccionRespuesta.query.filter_by(
-            inspeccion_id=inspeccion_id,
-            item_id=item.id
+            inspeccion_id=inspeccion_id, item_id=item.id
         ).first()
 
         if not respuesta:
 
             respuesta = InspeccionRespuesta(
-                inspeccion_id=inspeccion_id,
-                item_id=item.id
+                inspeccion_id=inspeccion_id, item_id=item.id
             )
 
             db.session.add(respuesta)
@@ -842,6 +836,7 @@ class InspeccionService:
                     )
 
         return errores
+
     @staticmethod
     def validar_lectura_inicial(inspeccion):
 
@@ -854,16 +849,12 @@ class InspeccionService:
             return errores
 
         nombre_medicion = (
-            "kilometraje"
-            if tipo_medicion == "KILOMETRAJE"
-            else "horómetro"
+            "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
         )
 
         # Validar lectura inicial
         if inspeccion.contador_inicial is None:
-            errores.append(
-                f"Debe registrar el {nombre_medicion} inicial."
-            )
+            errores.append(f"Debe registrar el {nombre_medicion} inicial.")
 
         # Validar fotografía inicial
         if not inspeccion.foto_contador_inicial:
@@ -872,7 +863,7 @@ class InspeccionService:
             )
 
         return errores
-    
+
     @staticmethod
     def finalizar_inspeccion(inspeccion_id):
 
@@ -882,25 +873,19 @@ class InspeccionService:
             raise Exception("La inspección no existe.")
 
         if inspeccion.estado != "EN_PROCESO":
-            raise Exception(
-                "La inspección ya no se encuentra en proceso."
-            )
+            raise Exception("La inspección ya no se encuentra en proceso.")
 
         # =====================================================
         # VALIDAR LECTURA INICIAL
         # =====================================================
 
-        errores_lecturas = InspeccionService.validar_lectura_inicial(
-            inspeccion
-        )
+        errores_lecturas = InspeccionService.validar_lectura_inicial(inspeccion)
 
         # =====================================================
         # VALIDAR RESPUESTAS
         # =====================================================
 
-        errores_respuestas = InspeccionService.validar_inspeccion(
-            inspeccion_id
-        )
+        errores_respuestas = InspeccionService.validar_inspeccion(inspeccion_id)
 
         # =====================================================
         # UNIFICAR ERRORES
@@ -910,18 +895,13 @@ class InspeccionService:
 
         if errores:
 
-            return {
-                "ok": False,
-                "errores": errores
-            }
+            return {"ok": False, "errores": errores}
 
         # =====================================================
         # CREAR ALERTAS DEL PREOPERACIONAL
         # =====================================================
 
-        InspeccionService.crear_alertas(
-            inspeccion_id
-        )
+        InspeccionService.crear_alertas(inspeccion_id)
 
         # =====================================================
         # CAMBIAR A PENDIENTE DE CIERRE
@@ -934,9 +914,8 @@ class InspeccionService:
         return {
             "ok": True,
             "mensaje": "Inspección guardada correctamente. Debe registrar la lectura final.",
-            "inspeccion": inspeccion.to_dict()
+            "inspeccion": inspeccion.to_dict(),
         }
-            
 
     @staticmethod
     def guardar_lectura_inicial(inspeccion_id, data):
@@ -947,9 +926,7 @@ class InspeccionService:
             raise Exception("La inspección no existe.")
 
         if inspeccion.estado != "EN_PROCESO":
-            raise Exception(
-                "La inspección ya no permite modificar la lectura inicial."
-            )
+            raise Exception("La inspección ya no permite modificar la lectura inicial.")
 
         tipo_medicion = inspeccion.plantilla.tipo_medicion
 
@@ -961,21 +938,15 @@ class InspeccionService:
         lectura = data.get("lectura")
 
         if lectura is None:
-            raise Exception(
-                "Debe registrar la lectura inicial."
-            )
+            raise Exception("Debe registrar la lectura inicial.")
 
         try:
             lectura = float(lectura)
         except (ValueError, TypeError):
-            raise Exception(
-                "La lectura inicial no es válida."
-            )
+            raise Exception("La lectura inicial no es válida.")
 
         if lectura < 0:
-            raise Exception(
-                "La lectura inicial no puede ser negativa."
-            )
+            raise Exception("La lectura inicial no puede ser negativa.")
 
         inspeccion.contador_inicial = lectura
 
@@ -986,14 +957,13 @@ class InspeccionService:
 
         return inspeccion
 
-
     @staticmethod
     def guardar_lectura_final(
         inspeccion_id,
         data,
         firma=None,
         tratamiento_datos_aceptado=False,
-        confirma_firma=False
+        confirma_firma=False,
     ):
 
         inspeccion = Inspeccion.query.get(inspeccion_id)
@@ -1012,19 +982,13 @@ class InspeccionService:
         # =====================================================
 
         if not tratamiento_datos_aceptado:
-            raise Exception(
-                "Debe aceptar el tratamiento de datos."
-            )
+            raise Exception("Debe aceptar el tratamiento de datos.")
 
         if not confirma_firma:
-            raise Exception(
-                "Debe confirmar que está firmando la inspección."
-            )
+            raise Exception("Debe confirmar que está firmando la inspección.")
 
         if not firma:
-            raise Exception(
-                "Debe realizar la firma antes de finalizar."
-            )
+            raise Exception("Debe realizar la firma antes de finalizar.")
 
         tipo_medicion = inspeccion.plantilla.tipo_medicion
 
@@ -1038,34 +1002,24 @@ class InspeccionService:
             lectura = data.get("lectura")
 
             if lectura is None:
-                raise Exception(
-                    "Debe registrar la lectura final."
-                )
+                raise Exception("Debe registrar la lectura final.")
 
             try:
                 lectura = float(lectura)
 
             except (ValueError, TypeError):
-                raise Exception(
-                    "La lectura final no es válida."
-                )
+                raise Exception("La lectura final no es válida.")
 
             if lectura < 0:
-                raise Exception(
-                    "La lectura no puede ser negativa."
-                )
+                raise Exception("La lectura no puede ser negativa.")
 
             if inspeccion.contador_inicial is None:
-                raise Exception(
-                    "Primero debe registrar la lectura inicial."
-                )
+                raise Exception("Primero debe registrar la lectura inicial.")
 
             if lectura < float(inspeccion.contador_inicial):
 
                 nombre_medicion = (
-                    "kilometraje"
-                    if tipo_medicion == "KILOMETRAJE"
-                    else "horómetro"
+                    "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
                 )
 
                 raise Exception(
@@ -1086,14 +1040,9 @@ class InspeccionService:
             # ACTUALIZAR HORÓMETRO DE LA MAQUINARIA
             # =================================================
 
-            if (
-                tipo_medicion == "HOROMETRO"
-                and inspeccion.maquinaria_id is not None
-            ):
+            if tipo_medicion == "HOROMETRO" and inspeccion.maquinaria_id is not None:
 
-                maquinaria = Maquinaria.query.get(
-                    inspeccion.maquinaria_id
-                )
+                maquinaria = Maquinaria.query.get(inspeccion.maquinaria_id)
 
                 if maquinaria:
 
@@ -1102,7 +1051,7 @@ class InspeccionService:
                     registro_horas = MaquinariaHoras(
                         maquinaria_id=maquinaria.id,
                         horas=lectura,
-                        origen="PREOPERACIONAL"
+                        origen="PREOPERACIONAL",
                     )
 
                     db.session.add(registro_horas)
@@ -1111,32 +1060,17 @@ class InspeccionService:
         # GUARDAR FIRMA DEL OPERADOR
         # =====================================================
 
-        carpeta_firma = os.path.join(
-            "uploads",
-            "inspecciones",
-            str(inspeccion.id)
-        )
+        carpeta_firma = os.path.join("uploads", "inspecciones", str(inspeccion.id))
 
-        os.makedirs(
-            carpeta_firma,
-            exist_ok=True
-        )
+        os.makedirs(carpeta_firma, exist_ok=True)
 
-        nombre_firma = (
-            f"firma_{uuid.uuid4().hex}.png"
-        )
+        nombre_firma = f"firma_{uuid.uuid4().hex}.png"
 
-        ruta_firma = os.path.join(
-            carpeta_firma,
-            nombre_firma
-        )
+        ruta_firma = os.path.join(carpeta_firma, nombre_firma)
 
         firma.save(ruta_firma)
 
-        inspeccion.firma_path = ruta_firma.replace(
-            "\\",
-            "/"
-        )
+        inspeccion.firma_path = ruta_firma.replace("\\", "/")
 
         # =====================================================
         # CONFIRMACIÓN DE TRATAMIENTO Y FIRMA
@@ -1146,17 +1080,9 @@ class InspeccionService:
 
         inspeccion.confirma_firma = True
 
-        inspeccion.confirmacion_fecha = (
-            datetime.now(
-                ZoneInfo("America/Bogota")
-            )
-        )
+        inspeccion.confirmacion_fecha = datetime.now(ZoneInfo("America/Bogota"))
 
-        inspeccion.hora_fin = (
-            datetime.now(
-                ZoneInfo("America/Bogota")
-            )
-        )
+        inspeccion.hora_fin = datetime.now(ZoneInfo("America/Bogota"))
 
         # =====================================================
         # FINALIZAR INSPECCIÓN
@@ -1170,99 +1096,81 @@ class InspeccionService:
 
     @staticmethod
     def validar_lecturas(inspeccion):
-    
+
         errores = []
-    
+
         tipo_medicion = inspeccion.plantilla.tipo_medicion
-    
+
         # =====================================================
         # NO REQUIERE MEDICIÓN
         # =====================================================
-    
+
         if tipo_medicion == "NINGUNO":
             return errores
-    
+
         # =====================================================
         # LECTURA INICIAL
         # =====================================================
-    
+
         if inspeccion.contador_inicial is None:
-        
+
             nombre_medicion = (
-                "kilometraje"
-                if tipo_medicion == "KILOMETRAJE"
-                else "horómetro"
+                "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
             )
-    
-            errores.append(
-                f"Debe registrar el {nombre_medicion} inicial."
-            )
-    
+
+            errores.append(f"Debe registrar el {nombre_medicion} inicial.")
+
         if not inspeccion.foto_contador_inicial:
-        
+
             nombre_medicion = (
-                "kilometraje"
-                if tipo_medicion == "KILOMETRAJE"
-                else "horómetro"
+                "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
             )
-    
+
             errores.append(
                 f"Debe adjuntar la fotografía del {nombre_medicion} inicial."
             )
-    
+
         # =====================================================
         # LECTURA FINAL
         # =====================================================
-    
+
         if inspeccion.contador_final is None:
-        
+
             nombre_medicion = (
-                "kilometraje"
-                if tipo_medicion == "KILOMETRAJE"
-                else "horómetro"
+                "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
             )
-    
-            errores.append(
-                f"Debe registrar el {nombre_medicion} final."
-            )
-    
+
+            errores.append(f"Debe registrar el {nombre_medicion} final.")
+
         if not inspeccion.foto_contador_final:
-        
+
             nombre_medicion = (
-                "kilometraje"
-                if tipo_medicion == "KILOMETRAJE"
-                else "horómetro"
+                "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
             )
-    
-            errores.append(
-                f"Debe adjuntar la fotografía del {nombre_medicion} final."
-            )
-    
+
+            errores.append(f"Debe adjuntar la fotografía del {nombre_medicion} final.")
+
         # =====================================================
         # VALIDAR QUE FINAL >= INICIAL
         # =====================================================
-    
+
         if (
             inspeccion.contador_inicial is not None
             and inspeccion.contador_final is not None
-            and float(inspeccion.contador_final)
-            < float(inspeccion.contador_inicial)
+            and float(inspeccion.contador_final) < float(inspeccion.contador_inicial)
         ):
-    
+
             nombre_medicion = (
-                "kilometraje"
-                if tipo_medicion == "KILOMETRAJE"
-                else "horómetro"
+                "kilometraje" if tipo_medicion == "KILOMETRAJE" else "horómetro"
             )
-    
+
             errores.append(
                 f"El {nombre_medicion} final no puede ser menor "
                 f"que el {nombre_medicion} inicial."
             )
-    
+
         return errores
-            
-        
+
         # =====================================================
 
     # CREAR ALERTAS
@@ -1328,12 +1236,7 @@ class InspeccionService:
     def obtener_inspeccion_hoy(usuario_id, vehiculo_id=None, maquinaria_id=None):
 
         ahora = datetime.now(ZoneInfo("America/Bogota"))
-        inicio_dia = ahora.replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0
-        )
+        inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
         fin_dia = inicio_dia + timedelta(days=1)
 
@@ -1341,22 +1244,16 @@ class InspeccionService:
             Inspeccion.usuario_id == usuario_id,
             Inspeccion.hora_inicio >= inicio_dia,
             Inspeccion.hora_inicio < fin_dia,
-            Inspeccion.estado != "ANULADA"
+            Inspeccion.estado != "ANULADA",
         )
 
         if vehiculo_id is not None:
-            query = query.filter(
-                Inspeccion.vehiculo_id == vehiculo_id
-            )
+            query = query.filter(Inspeccion.vehiculo_id == vehiculo_id)
 
         if maquinaria_id is not None:
-            query = query.filter(
-                Inspeccion.maquinaria_id == maquinaria_id
-            )
+            query = query.filter(Inspeccion.maquinaria_id == maquinaria_id)
 
-        return query.order_by(
-            Inspeccion.id.desc()
-        ).first()
+        return query.order_by(Inspeccion.id.desc()).first()
 
     @staticmethod
     def crear_anomalia(data):
@@ -1533,9 +1430,7 @@ class InspeccionService:
 
         return AnomaliaFoto.query.filter(AnomaliaFoto.anomalia_id == anomalia_id).all()
 
-
-# APLICACION MOVIL
-
+    # APLICACION MOVIL
 
     @staticmethod
     def obtener_configuracion_movil(usuario_id):
@@ -1544,16 +1439,12 @@ class InspeccionService:
         necesita para realizar inspecciones sin conexión.
         """
 
-        asignaciones = (
-            ActivoOperador.query
-            .filter_by(usuario_id=usuario_id, activo=True)
-            .all()
-        )
+        asignaciones = ActivoOperador.query.filter_by(
+            usuario_id=usuario_id, activo=True
+        ).all()
 
         if not asignaciones:
-            raise ValueError(
-                "El operador no tiene activos asignados."
-            )
+            raise ValueError("El operador no tiene activos asignados.")
 
         activos = []
         plantillas_ids = set()
@@ -1563,10 +1454,7 @@ class InspeccionService:
             activo = None
 
             if asignacion.vehiculo_id:
-                vehiculo = db.session.get(
-                    Vehiculo,
-                    asignacion.vehiculo_id
-                )
+                vehiculo = db.session.get(Vehiculo, asignacion.vehiculo_id)
 
                 if vehiculo:
                     activo = {
@@ -1578,14 +1466,11 @@ class InspeccionService:
                             float(vehiculo.km_actual)
                             if vehiculo.km_actual is not None
                             else None
-                        )
+                        ),
                     }
 
             elif asignacion.maquinaria_id:
-                maquinaria = db.session.get(
-                    Maquinaria,
-                    asignacion.maquinaria_id
-                )
+                maquinaria = db.session.get(Maquinaria, asignacion.maquinaria_id)
 
                 if maquinaria:
                     activo = {
@@ -1597,7 +1482,7 @@ class InspeccionService:
                             float(maquinaria.horometro_actual)
                             if maquinaria.horometro_actual is not None
                             else None
-                        )
+                        ),
                     }
 
             if not activo:
@@ -1608,48 +1493,45 @@ class InspeccionService:
 
             try:
                 plantilla = InspeccionService.obtener_plantilla(
-                    activo["tipo"],
-                    activo["tipo_id"]
+                    activo["tipo"], activo["tipo_id"]
                 )
 
                 if plantilla:
                     plantillas_ids.add(plantilla.id)
                 else:
-                    advertencias.append({
+                    advertencias.append(
+                        {
+                            "tipo": activo["tipo"],
+                            "activo_id": activo["id"],
+                            "mensaje": (
+                                f"El activo {activo['nombre']} "
+                                "no tiene una plantilla disponible."
+                            ),
+                        }
+                    )
+
+            except ValueError:
+                advertencias.append(
+                    {
                         "tipo": activo["tipo"],
                         "activo_id": activo["id"],
                         "mensaje": (
                             f"El activo {activo['nombre']} "
                             "no tiene una plantilla disponible."
-                        )
-                    })
-
-            except ValueError:
-                advertencias.append({
-                    "tipo": activo["tipo"],
-                    "activo_id": activo["id"],
-                    "mensaje": (
-                        f"El activo {activo['nombre']} "
-                        "no tiene una plantilla disponible."
-                    )
-                })
+                        ),
+                    }
+                )
 
         plantillas = []
 
         for plantilla_id in sorted(plantillas_ids):
             plantilla = (
-                InspeccionPlantilla.query
-                .options(
-                    joinedload(
-                        InspeccionPlantilla.categorias
-                    ).joinedload(
+                InspeccionPlantilla.query.options(
+                    joinedload(InspeccionPlantilla.categorias).joinedload(
                         InspeccionCategoria.items
                     )
                 )
-                .filter_by(
-                    id=plantilla_id,
-                    activa=True
-                )
+                .filter_by(id=plantilla_id, activa=True)
                 .first()
             )
 
@@ -1659,9 +1541,7 @@ class InspeccionService:
                 # Garantiza el orden de las categorías.
                 datos["categorias"] = sorted(
                     datos.get("categorias", []),
-                    key=lambda categoria: (
-                        categoria.get("orden") or 0
-                    )
+                    key=lambda categoria: (categoria.get("orden") or 0),
                 )
 
                 plantillas.append(datos)
@@ -1671,14 +1551,9 @@ class InspeccionService:
             "activos": activos,
             "plantillas": plantillas,
             "advertencias": advertencias,
-            "descargado_en": (
-                InspeccionService.obtener_fecha_actual()
-                .isoformat()
-            )
+            "descargado_en": (InspeccionService.obtener_fecha_actual().isoformat()),
         }
-        
-        
-    
+
     @staticmethod
     def obtener_por_uuid_sync(uuid_sync):
         """
@@ -1687,24 +1562,15 @@ class InspeccionService:
         """
 
         if not uuid_sync:
-            raise ValueError(
-                "El UUID de sincronización es obligatorio."
-            )
+            raise ValueError("El UUID de sincronización es obligatorio.")
 
         uuid_sync = str(uuid_sync).strip()
 
         if not uuid_sync:
-            raise ValueError(
-                "El UUID de sincronización es inválido."
-            )
+            raise ValueError("El UUID de sincronización es inválido.")
 
-        return (
-            Inspeccion.query
-            .filter_by(uuid_sync=uuid_sync)
-            .first()
-        )
-    
-    
+        return Inspeccion.query.filter_by(uuid_sync=uuid_sync).first()
+
     @staticmethod
     def sincronizar_movil(usuario_id, data, archivos):
         """
@@ -1741,21 +1607,17 @@ class InspeccionService:
                 return None
 
             try:
-                fecha = datetime.fromisoformat(
-                    str(valor).replace("Z", "+00:00")
-                )
+                fecha = datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
 
                 if fecha.tzinfo is not None:
-                    fecha = fecha.astimezone(
-                        ZoneInfo("America/Bogota")
-                    ).replace(tzinfo=None)
+                    fecha = fecha.astimezone(ZoneInfo("America/Bogota")).replace(
+                        tzinfo=None
+                    )
 
                 return fecha
 
             except (TypeError, ValueError, OverflowError):
-                raise ValueError(
-                    f"La fecha '{nombre_campo}' no es válida."
-                )
+                raise ValueError(f"La fecha '{nombre_campo}' no es válida.")
 
         def convertir_numero(valor, nombre_campo):
             if valor in (None, ""):
@@ -1764,14 +1626,10 @@ class InspeccionService:
             try:
                 numero = float(valor)
             except (TypeError, ValueError, OverflowError):
-                raise ValueError(
-                    f"El campo '{nombre_campo}' debe ser numérico."
-                )
+                raise ValueError(f"El campo '{nombre_campo}' debe ser numérico.")
 
             if not __import__("math").isfinite(numero):
-                raise ValueError(
-                    f"El campo '{nombre_campo}' no es válido."
-                )
+                raise ValueError(f"El campo '{nombre_campo}' no es válido.")
 
             return numero
 
@@ -1780,17 +1638,14 @@ class InspeccionService:
 
             if not valor:
                 if obligatorio:
-                    raise ValueError(
-                        f"El campo '{nombre_campo}' es obligatorio."
-                    )
+                    raise ValueError(f"El campo '{nombre_campo}' es obligatorio.")
                 return None
 
             try:
                 return str(uuid.UUID(valor))
             except (ValueError, TypeError, AttributeError):
                 raise ValueError(
-                    f"El campo '{nombre_campo}' no contiene "
-                    "un UUID válido."
+                    f"El campo '{nombre_campo}' no contiene " "un UUID válido."
                 )
 
         def obtener_archivo(clave):
@@ -1801,81 +1656,56 @@ class InspeccionService:
 
             if archivo is None:
                 raise ValueError(
-                    f"No se recibió el archivo '{clave}' "
-                    "indicado en el payload."
+                    f"No se recibió el archivo '{clave}' " "indicado en el payload."
                 )
 
             return archivo
 
         def guardar_archivo(archivo, carpeta, prefijo):
             if not archivo or not getattr(archivo, "filename", None):
-                raise ValueError(
-                    "Se recibió una fotografía sin archivo válido."
-                )
+                raise ValueError("Se recibió una fotografía sin archivo válido.")
 
             contenido = archivo.read()
 
             if not contenido:
-                raise ValueError(
-                    "No se permite sincronizar un archivo vacío."
-                )
+                raise ValueError("No se permite sincronizar un archivo vacío.")
 
             # Límite por archivo configurable desde Flask.
-            max_bytes = current_app.config.get(
-                "MAX_CONTENT_LENGTH"
-            ) or (15 * 1024 * 1024)
+            max_bytes = current_app.config.get("MAX_CONTENT_LENGTH") or (
+                15 * 1024 * 1024
+            )
 
             if len(contenido) > max_bytes:
-                raise ValueError(
-                    "La fotografía supera el tamaño máximo permitido."
-                )
+                raise ValueError("La fotografía supera el tamaño máximo permitido.")
 
-            hash_calculado = hashlib.sha256(
-                contenido
-            ).hexdigest()
+            hash_calculado = hashlib.sha256(contenido).hexdigest()
 
             archivo.seek(0)
 
-            nombre_original = secure_filename(
-                archivo.filename
-            ) or "fotografia.jpg"
+            nombre_original = secure_filename(archivo.filename) or "fotografia.jpg"
 
-            nombre_final = (
-                f"{prefijo}_{uuid.uuid4().hex}_"
-                f"{nombre_original}"
-            )
+            nombre_final = f"{prefijo}_{uuid.uuid4().hex}_" f"{nombre_original}"
 
-            directorio = os.path.join(
-                current_app.root_path,
-                "uploads",
-                carpeta
-            )
+            directorio = os.path.join(current_app.root_path, "uploads", carpeta)
 
             os.makedirs(directorio, exist_ok=True)
 
-            ruta_absoluta = os.path.join(
-                directorio,
-                nombre_final
-            )
+            ruta_absoluta = os.path.join(directorio, nombre_final)
 
             with open(ruta_absoluta, "wb") as destino:
                 destino.write(contenido)
 
             archivos_guardados.append(ruta_absoluta)
 
-            ruta_relativa = os.path.join(
-                "uploads",
-                carpeta,
-                nombre_final
-            ).replace("\\", "/")
+            ruta_relativa = os.path.join("uploads", carpeta, nombre_final).replace(
+                "\\", "/"
+            )
 
             return {
                 "ruta": ruta_relativa,
                 "hash": hash_calculado,
                 "tamano": len(contenido),
-                "mime_type": getattr(
-                    archivo, "mimetype", None
-                )
+                "mime_type": getattr(archivo, "mimetype", None),
             }
 
         try:
@@ -1884,14 +1714,10 @@ class InspeccionService:
             # --------------------------------------------------
 
             if not isinstance(data, dict):
-                raise ValueError(
-                    "El payload debe ser un objeto JSON."
-                )
+                raise ValueError("El payload debe ser un objeto JSON.")
 
             uuid_inspeccion = validar_uuid(
-                data.get("uuid_sync"),
-                "uuid_sync",
-                obligatorio=True
+                data.get("uuid_sync"), "uuid_sync", obligatorio=True
             )
 
             try:
@@ -1899,71 +1725,47 @@ class InspeccionService:
                 if plantilla_id <= 0:
                     raise ValueError()
             except (TypeError, ValueError, OverflowError):
-                raise ValueError(
-                    "La plantilla de la inspección no es válida."
-                )
+                raise ValueError("La plantilla de la inspección no es válida.")
 
             vehiculo_id = data.get("vehiculo_id")
             maquinaria_id = data.get("maquinaria_id")
 
             if bool(vehiculo_id) == bool(maquinaria_id):
                 raise ValueError(
-                    "Debes indicar exactamente un vehículo "
-                    "o una maquinaria."
+                    "Debes indicar exactamente un vehículo " "o una maquinaria."
                 )
 
             try:
-                vehiculo_id = (
-                    int(vehiculo_id) if vehiculo_id else None
-                )
-                maquinaria_id = (
-                    int(maquinaria_id) if maquinaria_id else None
-                )
+                vehiculo_id = int(vehiculo_id) if vehiculo_id else None
+                maquinaria_id = int(maquinaria_id) if maquinaria_id else None
 
-                if (
-                    vehiculo_id is not None and vehiculo_id <= 0
-                ) or (
-                    maquinaria_id is not None
-                    and maquinaria_id <= 0
+                if (vehiculo_id is not None and vehiculo_id <= 0) or (
+                    maquinaria_id is not None and maquinaria_id <= 0
                 ):
                     raise ValueError()
 
             except (TypeError, ValueError, OverflowError):
-                raise ValueError(
-                    "El identificador del activo no es válido."
-                )
+                raise ValueError("El identificador del activo no es válido.")
 
             respuestas_data = data.get("respuestas", [])
             anomalias_data = data.get("anomalias", [])
 
             if not isinstance(respuestas_data, list):
-                raise ValueError(
-                    "Las respuestas deben enviarse como una lista."
-                )
+                raise ValueError("Las respuestas deben enviarse como una lista.")
 
             if not isinstance(anomalias_data, list):
-                raise ValueError(
-                    "Las anomalías deben enviarse como una lista."
-                )
+                raise ValueError("Las anomalías deben enviarse como una lista.")
 
             # --------------------------------------------------
             # 2. VALIDAR ASIGNACIÓN DEL OPERADOR
             # --------------------------------------------------
 
-            asignaciones = (
-                ActivoOperador.query
-                .filter_by(
-                    usuario_id=usuario_id,
-                    activo=True
-                )
-                .all()
-            )
+            asignaciones = ActivoOperador.query.filter_by(
+                usuario_id=usuario_id, activo=True
+            ).all()
 
             autorizado = any(
-                (
-                    vehiculo_id is not None
-                    and asignacion.vehiculo_id == vehiculo_id
-                )
+                (vehiculo_id is not None and asignacion.vehiculo_id == vehiculo_id)
                 or (
                     maquinaria_id is not None
                     and asignacion.maquinaria_id == maquinaria_id
@@ -1972,76 +1774,54 @@ class InspeccionService:
             )
 
             if not autorizado:
-                raise ValueError(
-                    "No tienes asignado este vehículo o maquinaria."
-                )
+                raise ValueError("No tienes asignado este vehículo o maquinaria.")
 
             # --------------------------------------------------
             # 3. VALIDAR ACTIVO Y PLANTILLA
             # --------------------------------------------------
 
             if vehiculo_id is not None:
-                activo = db.session.get(
-                    Vehiculo, vehiculo_id
-                )
+                activo = db.session.get(Vehiculo, vehiculo_id)
 
                 if not activo:
-                    raise ValueError(
-                        "El vehículo indicado no existe."
-                    )
+                    raise ValueError("El vehículo indicado no existe.")
 
                 tipo_activo = "VEHICULO"
                 tipo_activo_id = activo.tipo_vehiculo_id
 
             else:
-                activo = db.session.get(
-                    Maquinaria, maquinaria_id
-                )
+                activo = db.session.get(Maquinaria, maquinaria_id)
 
                 if not activo:
-                    raise ValueError(
-                        "La maquinaria indicada no existe."
-                    )
+                    raise ValueError("La maquinaria indicada no existe.")
 
                 tipo_activo = "MAQUINARIA"
                 tipo_activo_id = activo.tipo_maquinaria_id
 
             plantilla = (
-                InspeccionPlantilla.query
-                .options(
-                    joinedload(
-                        InspeccionPlantilla.categorias
-                    ).joinedload(
+                InspeccionPlantilla.query.options(
+                    joinedload(InspeccionPlantilla.categorias).joinedload(
                         InspeccionCategoria.items
                     )
                 )
-                .filter_by(
-                    id=plantilla_id,
-                    activa=True
-                )
+                .filter_by(id=plantilla_id, activa=True)
                 .first()
             )
 
             if not plantilla:
-                raise ValueError(
-                    "La plantilla no existe o está inactiva."
-                )
+                raise ValueError("La plantilla no existe o está inactiva.")
 
             if plantilla.tipo_activo != tipo_activo:
-                raise ValueError(
-                    "La plantilla no corresponde al tipo de activo."
-                )
+                raise ValueError("La plantilla no corresponde al tipo de activo.")
 
             if tipo_activo == "VEHICULO":
                 if plantilla.tipo_vehiculo_id != tipo_activo_id:
                     raise ValueError(
-                        "La plantilla no corresponde al tipo "
-                        "de vehículo asignado."
+                        "La plantilla no corresponde al tipo " "de vehículo asignado."
                     )
             elif plantilla.tipo_maquinaria_id != tipo_activo_id:
                 raise ValueError(
-                    "La plantilla no corresponde al tipo "
-                    "de maquinaria asignada."
+                    "La plantilla no corresponde al tipo " "de maquinaria asignada."
                 )
 
             # --------------------------------------------------
@@ -2049,8 +1829,7 @@ class InspeccionService:
             # --------------------------------------------------
 
             inspeccion = (
-                Inspeccion.query
-                .filter_by(uuid_sync=uuid_inspeccion)
+                Inspeccion.query.filter_by(uuid_sync=uuid_inspeccion)
                 .with_for_update()
                 .first()
             )
@@ -2059,28 +1838,22 @@ class InspeccionService:
 
             if inspeccion:
                 if inspeccion.usuario_id != usuario_id:
-                    raise ValueError(
-                        "El UUID pertenece a otro usuario."
-                    )
+                    raise ValueError("El UUID pertenece a otro usuario.")
 
                 if inspeccion.plantilla_id != plantilla_id:
-                    raise ValueError(
-                        "El UUID ya está asociado a otra plantilla."
-                    )
+                    raise ValueError("El UUID ya está asociado a otra plantilla.")
 
                 if (
                     inspeccion.vehiculo_id != vehiculo_id
                     or inspeccion.maquinaria_id != maquinaria_id
                 ):
-                    raise ValueError(
-                        "El UUID ya está asociado a otro activo."
-                    )
+                    raise ValueError("El UUID ya está asociado a otro activo.")
 
                 if inspeccion.estado in (
                     "FINALIZADA",
                     "REVISADA",
                     "ANULADA",
-                    "PENDIENTE_CIERRE"
+                    "PENDIENTE_CIERRE",
                 ):
                     return {
                         "uuid_sync": inspeccion.uuid_sync,
@@ -2090,7 +1863,7 @@ class InspeccionService:
                         "mensaje": (
                             "La inspección ya no admite "
                             "modificaciones desde la sincronización."
-                        )
+                        ),
                     }
 
                 if inspeccion.estado != "EN_PROCESO":
@@ -2104,15 +1877,10 @@ class InspeccionService:
             # --------------------------------------------------
 
             if inspeccion_nueva:
-                hora_inicio = convertir_fecha(
-                    data.get("hora_inicio"),
-                    "hora_inicio"
-                )
+                hora_inicio = convertir_fecha(data.get("hora_inicio"), "hora_inicio")
 
                 if hora_inicio is None:
-                    hora_inicio = (
-                        InspeccionService.obtener_fecha_actual()
-                    )
+                    hora_inicio = InspeccionService.obtener_fecha_actual()
 
                 inspeccion = Inspeccion(
                     uuid_sync=uuid_inspeccion,
@@ -2123,33 +1891,24 @@ class InspeccionService:
                     maquinaria_id=maquinaria_id,
                     hora_inicio=hora_inicio,
                     estado="EN_PROCESO",
-                    observaciones_generales=(
-                        data.get("observaciones_generales")
-                    )
+                    observaciones_generales=(data.get("observaciones_generales")),
                 )
 
                 db.session.add(inspeccion)
                 db.session.flush()
 
             elif data.get("observaciones_generales") is not None:
-                inspeccion.observaciones_generales = (
-                    data.get("observaciones_generales")
-                )
+                inspeccion.observaciones_generales = data.get("observaciones_generales")
 
             # --------------------------------------------------
             # 6. GUARDAR O COMPLETAR LECTURA INICIAL
             # --------------------------------------------------
 
-            lectura = convertir_numero(
-                data.get("contador_inicial"),
-                "contador_inicial"
-            )
+            lectura = convertir_numero(data.get("contador_inicial"), "contador_inicial")
 
             if lectura is not None:
                 if lectura < 0:
-                    raise ValueError(
-                        "La lectura inicial no puede ser negativa."
-                    )
+                    raise ValueError("La lectura inicial no puede ser negativa.")
 
                 if (
                     inspeccion.contador_inicial is not None
@@ -2164,27 +1923,19 @@ class InspeccionService:
 
                 inspeccion.contador_inicial = lectura
 
-            clave_foto_inicial = data.get(
-                "foto_contador_inicial_key"
-            )
+            clave_foto_inicial = data.get("foto_contador_inicial_key")
 
             if clave_foto_inicial:
-                archivo_inicial = obtener_archivo(
-                    clave_foto_inicial
-                )
+                archivo_inicial = obtener_archivo(clave_foto_inicial)
 
                 # Si ya hay foto, se conserva para evitar duplicados
                 # en reintentos. Si falta, se permite completarla.
                 if not inspeccion.foto_contador_inicial:
                     resultado_archivo = guardar_archivo(
-                        archivo_inicial,
-                        "inspecciones",
-                        "contador_inicial"
+                        archivo_inicial, "inspecciones", "contador_inicial"
                     )
 
-                    inspeccion.foto_contador_inicial = (
-                        resultado_archivo["ruta"]
-                    )
+                    inspeccion.foto_contador_inicial = resultado_archivo["ruta"]
 
             # --------------------------------------------------
             # 7. VALIDAR ÍTEMS DE LA PLANTILLA
@@ -2207,27 +1958,21 @@ class InspeccionService:
 
             for respuesta_data in respuestas_data:
                 if not isinstance(respuesta_data, dict):
-                    raise ValueError(
-                        "Se encontró una respuesta con formato inválido."
-                    )
+                    raise ValueError("Se encontró una respuesta con formato inválido.")
 
                 try:
                     item_id = int(respuesta_data.get("item_id"))
                 except (TypeError, ValueError, OverflowError):
-                    raise ValueError(
-                        "Una respuesta no contiene un item_id válido."
-                    )
+                    raise ValueError("Una respuesta no contiene un item_id válido.")
 
                 if item_id not in ids_items_validos:
                     raise ValueError(
-                        f"La pregunta {item_id} no pertenece "
-                        "a la plantilla activa."
+                        f"La pregunta {item_id} no pertenece " "a la plantilla activa."
                     )
 
                 if item_id in items_recibidos:
                     raise ValueError(
-                        f"La pregunta {item_id} está repetida "
-                        "en el payload."
+                        f"La pregunta {item_id} está repetida " "en el payload."
                     )
 
                 items_recibidos.add(item_id)
@@ -2243,16 +1988,14 @@ class InspeccionService:
                     observacion = str(observacion).strip()
 
                 uuid_respuesta = validar_uuid(
-                    respuesta_data.get("uuid_sync"),
-                    "uuid_sync de respuesta"
+                    respuesta_data.get("uuid_sync"), "uuid_sync de respuesta"
                 )
 
                 respuesta = None
 
                 if uuid_respuesta:
                     respuesta = (
-                        InspeccionRespuesta.query
-                        .filter_by(uuid_sync=uuid_respuesta)
+                        InspeccionRespuesta.query.filter_by(uuid_sync=uuid_respuesta)
                         .with_for_update()
                         .first()
                     )
@@ -2266,15 +2009,12 @@ class InspeccionService:
 
                         if respuesta.item_id != item_id:
                             raise ValueError(
-                                "El UUID de respuesta ya pertenece "
-                                "a otra pregunta."
+                                "El UUID de respuesta ya pertenece " "a otra pregunta."
                             )
 
                 respuesta_por_item = (
-                    InspeccionRespuesta.query
-                    .filter_by(
-                        inspeccion_id=inspeccion.id,
-                        item_id=item_id
+                    InspeccionRespuesta.query.filter_by(
+                        inspeccion_id=inspeccion.id, item_id=item_id
                     )
                     .with_for_update()
                     .first()
@@ -2288,8 +2028,7 @@ class InspeccionService:
                     and respuesta_por_item.id != respuesta.id
                 ):
                     raise ValueError(
-                        "La pregunta ya tiene otra respuesta "
-                        "registrada."
+                        "La pregunta ya tiene otra respuesta " "registrada."
                     )
 
                 if respuesta is None:
@@ -2298,7 +2037,7 @@ class InspeccionService:
                         inspeccion_id=inspeccion.id,
                         item_id=item_id,
                         valor=valor,
-                        observacion=observacion
+                        observacion=observacion,
                     )
                     db.session.add(respuesta)
                     db.session.flush()
@@ -2329,97 +2068,61 @@ class InspeccionService:
                 fotos_data = respuesta_data.get("fotos", [])
 
                 if not isinstance(fotos_data, list):
-                    raise ValueError(
-                        "Las fotos de una respuesta deben ser una lista."
-                    )
+                    raise ValueError("Las fotos de una respuesta deben ser una lista.")
 
                 for foto_data in fotos_data:
                     if not isinstance(foto_data, dict):
-                        raise ValueError(
-                            "Se encontró una foto con formato inválido."
-                        )
+                        raise ValueError("Se encontró una foto con formato inválido.")
 
                     archivo_key = foto_data.get("archivo_key")
 
                     if not archivo_key:
-                        raise ValueError(
-                            "Cada foto debe indicar su archivo_key."
-                        )
+                        raise ValueError("Cada foto debe indicar su archivo_key.")
 
                     archivo_foto = obtener_archivo(archivo_key)
 
                     contenido = archivo_foto.read()
 
                     if not contenido:
-                        raise ValueError(
-                            "Una fotografía está vacía."
-                        )
+                        raise ValueError("Una fotografía está vacía.")
 
-                    hash_calculado = hashlib.sha256(
-                        contenido
-                    ).hexdigest()
+                    hash_calculado = hashlib.sha256(contenido).hexdigest()
 
                     archivo_foto.seek(0)
 
                     hash_cliente = foto_data.get("hash_archivo")
 
-                    if (
-                        hash_cliente
-                        and str(hash_cliente).lower()
-                        != hash_calculado
-                    ):
-                        raise ValueError(
-                            "El hash de una fotografía no coincide."
-                        )
+                    if hash_cliente and str(hash_cliente).lower() != hash_calculado:
+                        raise ValueError("El hash de una fotografía no coincide.")
 
-                    foto_existente = (
-                        InspeccionFoto.query
-                        .filter_by(
-                            respuesta_id=respuesta.id,
-                            hash_archivo=hash_calculado
-                        )
-                        .first()
-                    )
+                    foto_existente = InspeccionFoto.query.filter_by(
+                        respuesta_id=respuesta.id, hash_archivo=hash_calculado
+                    ).first()
 
                     if foto_existente:
                         continue
 
                     resultado_archivo = guardar_archivo(
-                        archivo_foto,
-                        "inspecciones",
-                        "respuesta"
+                        archivo_foto, "inspecciones", "respuesta"
                     )
 
                     def decimal_o_none(valor_gps):
                         if valor_gps in (None, ""):
                             return None
 
-                        numero = convertir_numero(
-                            valor_gps,
-                            "metadato GPS"
-                        )
+                        numero = convertir_numero(valor_gps, "metadato GPS")
 
                         return numero
 
-                    latitud = decimal_o_none(
-                        foto_data.get("latitud")
-                    )
-                    longitud = decimal_o_none(
-                        foto_data.get("longitud")
-                    )
-                    precision_gps = decimal_o_none(
-                        foto_data.get("precision_gps")
-                    )
+                    latitud = decimal_o_none(foto_data.get("latitud"))
+                    longitud = decimal_o_none(foto_data.get("longitud"))
+                    precision_gps = decimal_o_none(foto_data.get("precision_gps"))
 
                     if latitud is not None and not -90 <= latitud <= 90:
-                        raise ValueError(
-                            "La latitud de una foto no es válida."
-                        )
+                        raise ValueError("La latitud de una foto no es válida.")
 
                     if longitud is not None and not -180 <= longitud <= 180:
-                        raise ValueError(
-                            "La longitud de una foto no es válida."
-                        )
+                        raise ValueError("La longitud de una foto no es válida.")
 
                     foto = InspeccionFoto(
                         respuesta_id=respuesta.id,
@@ -2429,96 +2132,182 @@ class InspeccionService:
                         precision_gps=precision_gps,
                         direccion=foto_data.get("direccion"),
                         fecha_dispositivo=convertir_fecha(
-                            foto_data.get("fecha_dispositivo"),
-                            "fecha_dispositivo"
+                            foto_data.get("fecha_dispositivo"), "fecha_dispositivo"
                         ),
-                        fecha_servidor=(
-                            InspeccionService.obtener_fecha_actual()
-                        ),
-                        watermark=bool(
-                            foto_data.get("watermark", True)
-                        ),
+                        fecha_servidor=(InspeccionService.obtener_fecha_actual()),
+                        watermark=bool(foto_data.get("watermark", True)),
                         mime_type=resultado_archivo["mime_type"],
                         tamano_bytes=resultado_archivo["tamano"],
-                        hash_archivo=hash_calculado
+                        hash_archivo=hash_calculado,
                     )
 
                     db.session.add(foto)
                     fotos_procesadas += 1
 
             # --------------------------------------------------
-            # 9. GUARDAR ANOMALÍAS
+
+            # --------------------------------------------------
+            # 9. GUARDAR ANOMALÍAS Y SUS FOTOGRAFÍAS
             # --------------------------------------------------
 
             anomalias_procesadas = 0
+            fotos_anomalias_procesadas = 0
 
-            prioridades_validas = {
-                "BAJA",
-                "MEDIA",
-                "ALTA",
-                "CRITICA"
-            }
+            prioridades_validas = {"BAJA", "MEDIA", "ALTA", "CRITICA"}
 
             for anomalia_data in anomalias_data:
                 if not isinstance(anomalia_data, dict):
-                    raise ValueError(
-                        "Se encontró una anomalía con formato inválido."
-                    )
+                    raise ValueError("Se encontró una anomalía con formato inválido.")
 
-                titulo = str(
-                    anomalia_data.get("titulo") or ""
-                ).strip()
+                titulo = str(anomalia_data.get("titulo") or "").strip()
 
                 if not titulo:
+                    raise ValueError("Toda anomalía debe tener un título.")
+
+                if len(titulo) > 200:
                     raise ValueError(
-                        "Toda anomalía debe tener un título."
+                        "El título de una anomalía no puede "
+                        "superar los 200 caracteres."
                     )
 
+                # Para las anomalías móviles exigimos un UUID estable.
                 uuid_anomalia = validar_uuid(
                     anomalia_data.get("uuid_sync"),
-                    "uuid_sync de anomalía"
+                    "uuid_sync de anomalía",
+                    obligatorio=True,
                 )
 
-                prioridad = str(
-                    anomalia_data.get("prioridad") or "MEDIA"
-                ).strip().upper()
+                prioridad = (
+                    str(anomalia_data.get("prioridad") or "MEDIA").strip().upper()
+                )
 
                 if prioridad not in prioridades_validas:
+                    raise ValueError("La prioridad de una anomalía no es válida.")
+
+                fotos_data = anomalia_data.get("fotos", [])
+
+                if not isinstance(fotos_data, list):
                     raise ValueError(
-                        "La prioridad de una anomalía no es válida."
+                        "Las fotos de una anomalía deben enviarse " "como una lista."
                     )
 
-                anomalia = None
+                anomalia = (
+                    InspeccionAnomalia.query.filter_by(uuid_sync=uuid_anomalia)
+                    .with_for_update()
+                    .first()
+                )
 
-                if uuid_anomalia:
-                    anomalia = (
-                        InspeccionAnomalia.query
-                        .filter_by(uuid_sync=uuid_anomalia)
-                        .with_for_update()
-                        .first()
-                    )
+                if anomalia is not None:
+                    if anomalia.inspeccion_id != inspeccion.id:
+                        raise ValueError(
+                            "El UUID de anomalía ya pertenece " "a otra inspección."
+                        )
 
-                    if anomalia:
-                        if anomalia.inspeccion_id != inspeccion.id:
-                            raise ValueError(
-                                "El UUID de anomalía ya pertenece "
-                                "a otra inspección."
-                            )
-
-                if anomalia is None:
+                    if anomalia.usuario_id != usuario_id:
+                        raise ValueError(
+                            "El UUID de anomalía ya pertenece " "a otro usuario."
+                        )
+                else:
                     anomalia = InspeccionAnomalia(
                         uuid_sync=uuid_anomalia,
                         inspeccion_id=inspeccion.id,
                         usuario_id=usuario_id,
                         titulo=titulo,
                         descripcion=anomalia_data.get("descripcion"),
-                        prioridad=prioridad
+                        prioridad=prioridad,
                     )
 
                     db.session.add(anomalia)
+                    db.session.flush()
+
                     anomalias_procesadas += 1
 
-                # Si ya existe, no se duplica ni se sobrescribe.
+                # Consultar las fotos existentes para evitar
+                # volver a guardar el mismo contenido al reintentar.
+                fotos_existentes = AnomaliaFoto.query.filter_by(
+                    anomalia_id=anomalia.id
+                ).all()
+
+                hashes_existentes = set()
+
+                for foto_existente in fotos_existentes:
+                    ruta_existente = os.path.join(
+                        current_app.root_path, foto_existente.archivo
+                    )
+
+                    if not os.path.isfile(ruta_existente):
+                        continue
+
+                    try:
+                        with open(ruta_existente, "rb") as archivo_existente:
+                            hash_existente = hashlib.sha256(
+                                archivo_existente.read()
+                            ).hexdigest()
+
+                        hashes_existentes.add(hash_existente)
+
+                    except OSError:
+                        current_app.logger.exception(
+                            "No se pudo verificar una foto de anomalía."
+                        )
+
+                claves_fotos_recibidas = set()
+
+                for foto_data in fotos_data:
+                    if not isinstance(foto_data, dict):
+                        raise ValueError(
+                            "Se encontró una foto de anomalía " "con formato inválido."
+                        )
+
+                    archivo_key = str(foto_data.get("archivo_key") or "").strip()
+
+                    if not archivo_key:
+                        raise ValueError(
+                            "Cada foto de anomalía debe indicar " "su archivo_key."
+                        )
+
+                    if archivo_key in claves_fotos_recibidas:
+                        raise ValueError(
+                            "Una foto de anomalía está repetida " "en el payload."
+                        )
+
+                    claves_fotos_recibidas.add(archivo_key)
+
+                    archivo_foto = obtener_archivo(archivo_key)
+
+                    contenido = archivo_foto.read()
+
+                    if not contenido:
+                        raise ValueError("Una foto de anomalía está vacía.")
+
+                    hash_foto = hashlib.sha256(contenido).hexdigest()
+
+                    archivo_foto.seek(0)
+
+                    hash_cliente = foto_data.get("hash_archivo")
+
+                    if hash_cliente and str(hash_cliente).lower() != hash_foto:
+                        raise ValueError(
+                            "El hash de una foto de anomalía " "no coincide."
+                        )
+
+                    # Si ya existe el mismo contenido para esta
+                    # anomalía, no se vuelve a guardar.
+                    if hash_foto in hashes_existentes:
+                        continue
+
+                    resultado_archivo = guardar_archivo(
+                        archivo_foto, "anomalias", "anomalia"
+                    )
+
+                    foto = AnomaliaFoto(
+                        anomalia_id=anomalia.id, archivo=resultado_archivo["ruta"]
+                    )
+
+                    db.session.add(foto)
+
+                    hashes_existentes.add(hash_foto)
+                    fotos_anomalias_procesadas += 1
 
             # --------------------------------------------------
             # 10. CONFIRMAR TRANSACCIÓN
@@ -2545,7 +2334,7 @@ class InspeccionService:
                     "Inspección sincronizada correctamente. "
                     "Permanece en proceso hasta completar "
                     "el flujo de validación y cierre."
-                )
+                ),
             }
 
         except Exception:
@@ -2564,8 +2353,7 @@ class InspeccionService:
 
             raise
 
-    
-# REPORTES PDF
+    # REPORTES PDF
     @staticmethod
     def descargar_pdf(inspeccion_id):
 
@@ -2575,10 +2363,7 @@ class InspeccionService:
         from reportlab.lib import colors
         from reportlab.lib.enums import TA_CENTER, TA_LEFT
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import (
-            getSampleStyleSheet,
-            ParagraphStyle
-        )
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.platypus import (
             SimpleDocTemplate,
@@ -2587,7 +2372,7 @@ class InspeccionService:
             Table,
             TableStyle,
             Image as RLImage,
-            KeepTogether
+            KeepTogether,
         )
 
         # =========================================================
@@ -2637,7 +2422,7 @@ class InspeccionService:
             topMargin=20 * mm,
             bottomMargin=18 * mm,
             title="Inspección Preoperacional",
-            author="IntelliFeet"
+            author="IntelliFeet",
         )
 
         estilos = getSampleStyleSheet()
@@ -2737,10 +2522,7 @@ class InspeccionService:
             return valor
 
         def safe_paragraph(valor, style=normal, defecto="-"):
-            return Paragraph(
-                texto(valor, defecto).replace("&", "&amp;"),
-                style
-            )
+            return Paragraph(texto(valor, defecto).replace("&", "&amp;"), style)
 
         def fecha_formateada(fecha):
             if not fecha:
@@ -2816,43 +2598,18 @@ class InspeccionService:
 
             candidatos = [
                 ruta_limpia,
-
-                os.path.join(
-                    "uploads",
-                    ruta_limpia
-                ),
-
-                os.path.join(
-                    "uploads",
-                    "inspecciones",
-                    ruta_limpia
-                ),
-
-                os.path.join(
-                    "static",
-                    ruta_limpia
-                ),
-
-                os.path.join(
-                    "static",
-                    "uploads",
-                    ruta_limpia
-                ),
-
-                os.path.join(
-                    "static",
-                    "inspecciones",
-                    ruta_limpia
-                ),
+                os.path.join("uploads", ruta_limpia),
+                os.path.join("uploads", "inspecciones", ruta_limpia),
+                os.path.join("static", ruta_limpia),
+                os.path.join("static", "uploads", ruta_limpia),
+                os.path.join("static", "inspecciones", ruta_limpia),
             ]
 
             # -----------------------------------------------------
             # Si empieza por uploads/inspecciones
             # -----------------------------------------------------
 
-            if ruta_limpia.startswith(
-                "uploads/inspecciones/"
-            ):
+            if ruta_limpia.startswith("uploads/inspecciones/"):
                 candidatos.append(ruta_limpia)
 
             # -----------------------------------------------------
@@ -2870,11 +2627,7 @@ class InspeccionService:
         # AGREGAR IMAGEN
         # =========================================================
 
-        def crear_imagen(
-            ruta,
-            ancho_max=70 * mm,
-            alto_max=50 * mm
-        ):
+        def crear_imagen(ruta, ancho_max=70 * mm, alto_max=50 * mm):
 
             ruta_real = buscar_archivo(ruta)
 
@@ -2883,9 +2636,7 @@ class InspeccionService:
 
             try:
 
-                imagen = RLImage(
-                    ruta_real
-                )
+                imagen = RLImage(ruta_real)
 
                 # -------------------------------------------------
                 # Mantener proporción
@@ -2897,18 +2648,11 @@ class InspeccionService:
                 if not ancho_original or not alto_original:
                     return None
 
-                proporcion = min(
-                    ancho_max / ancho_original,
-                    alto_max / alto_original
-                )
+                proporcion = min(ancho_max / ancho_original, alto_max / alto_original)
 
-                imagen.drawWidth = (
-                    ancho_original * proporcion
-                )
+                imagen.drawWidth = ancho_original * proporcion
 
-                imagen.drawHeight = (
-                    alto_original * proporcion
-                )
+                imagen.drawHeight = alto_original * proporcion
 
                 return imagen
 
@@ -2928,31 +2672,17 @@ class InspeccionService:
             canvas.setStrokeColor(GRIS_BORDE)
             canvas.setLineWidth(0.5)
 
-            canvas.line(
-                16 * mm,
-                11 * mm,
-                ancho - 16 * mm,
-                11 * mm
-            )
+            canvas.line(16 * mm, 11 * mm, ancho - 16 * mm, 11 * mm)
 
-            canvas.setFont(
-                "Helvetica",
-                7
-            )
+            canvas.setFont("Helvetica", 7)
 
             canvas.setFillColor(GRIS)
 
             canvas.drawString(
-                16 * mm,
-                6 * mm,
-                "IntelliFeet · Sistema de Gestión Operacional"
+                16 * mm, 6 * mm, "IntelliFeet · Sistema de Gestión Operacional"
             )
 
-            canvas.drawRightString(
-                ancho - 16 * mm,
-                6 * mm,
-                f"Página {documento.page}"
-            )
+            canvas.drawRightString(ancho - 16 * mm, 6 * mm, f"Página {documento.page}")
 
             canvas.restoreState()
 
@@ -2966,9 +2696,7 @@ class InspeccionService:
         # HEADER
         # =========================================================
 
-        logo_path = buscar_archivo(
-            "static/intellifeet.png"
-        )
+        logo_path = buscar_archivo("static/intellifeet.png")
 
         logo = None
 
@@ -2977,177 +2705,87 @@ class InspeccionService:
             try:
 
                 logo = RLImage(
-                    logo_path,
-                    width=40 * mm,
-                    height=18 * mm,
-                    kind="proportional"
+                    logo_path, width=40 * mm, height=18 * mm, kind="proportional"
                 )
 
             except Exception:
                 logo = None
 
         encabezado_texto = [
-            Paragraph(
-                "FORMATO DE INSPECCIÓN<br/>PREOPERACIONAL",
-                titulo
-            ),
+            Paragraph("FORMATO DE INSPECCIÓN<br/>PREOPERACIONAL", titulo),
             Spacer(1, 2 * mm),
-            Paragraph(
-                "Registro de control operacional del activo",
-                pequeño
-            )
+            Paragraph("Registro de control operacional del activo", pequeño),
         ]
 
         if logo:
 
-            header = Table(
-                [[
-                    logo,
-                    encabezado_texto
-                ]],
-                colWidths=[
-                    48 * mm,
-                    125 * mm
-                ]
-            )
+            header = Table([[logo, encabezado_texto]], colWidths=[48 * mm, 125 * mm])
 
         else:
 
             header = Table(
-                [[
-                    Paragraph(
-                        "<b>IntelliFeet</b>",
-                        titulo
-                    ),
-                    encabezado_texto
-                ]],
-                colWidths=[
-                    48 * mm,
-                    125 * mm
-                ]
+                [[Paragraph("<b>IntelliFeet</b>", titulo), encabezado_texto]],
+                colWidths=[48 * mm, 125 * mm],
             )
 
         header.setStyle(
-            TableStyle([
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE"
-                ),
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    0
-                ),
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    0
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    0
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    0
-                ),
-            ])
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
         )
 
         elementos.append(header)
 
-        elementos.append(
-            Spacer(1, 7 * mm)
-        )
+        elementos.append(Spacer(1, 7 * mm))
 
         # =========================================================
         # ESTADO
         # =========================================================
 
-        estado_texto = texto(
-            inspeccion.estado,
-            "SIN ESTADO"
-        ).replace("_", " ")
+        estado_texto = texto(inspeccion.estado, "SIN ESTADO").replace("_", " ")
 
-        estado_color, estado_fondo = (
-            obtener_estado_color(
-                inspeccion.estado
-            )
-        )
+        estado_color, estado_fondo = obtener_estado_color(inspeccion.estado)
 
         estado_badge = Table(
-            [[
-                Paragraph(
-                    f"<b>{estado_texto}</b>",
-                    ParagraphStyle(
-                        "EstadoBadge",
-                        parent=normal,
-                        fontSize=8,
-                        textColor=estado_color,
-                        alignment=TA_CENTER
+            [
+                [
+                    Paragraph(
+                        f"<b>{estado_texto}</b>",
+                        ParagraphStyle(
+                            "EstadoBadge",
+                            parent=normal,
+                            fontSize=8,
+                            textColor=estado_color,
+                            alignment=TA_CENTER,
+                        ),
                     )
-                )
-            ]],
-            colWidths=[42 * mm]
+                ]
+            ],
+            colWidths=[42 * mm],
         )
 
         estado_badge.setStyle(
-            TableStyle([
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, -1),
-                    estado_fondo
-                ),
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.7,
-                    estado_color
-                ),
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-            ])
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), estado_fondo),
+                    ("BOX", (0, 0), (-1, -1), 0.7, estado_color),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
         )
 
-        elementos.append(
-            estado_badge
-        )
+        elementos.append(estado_badge)
 
-        elementos.append(
-            Spacer(1, 5 * mm)
-        )
+        elementos.append(Spacer(1, 5 * mm))
 
         # =========================================================
         # IDENTIFICAR ACTIVO
@@ -3157,15 +2795,11 @@ class InspeccionService:
 
         if inspeccion.vehiculo:
 
-            activo = texto(
-                inspeccion.vehiculo.placa
-            )
+            activo = texto(inspeccion.vehiculo.placa)
 
         elif inspeccion.maquinaria:
 
-            activo = texto(
-                inspeccion.maquinaria.codigo
-            )
+            activo = texto(inspeccion.maquinaria.codigo)
 
         # =========================================================
         # TIPO DE ACTIVO
@@ -3176,9 +2810,7 @@ class InspeccionService:
         if inspeccion.maquinaria:
 
             tipo_activo = (
-                texto(
-                    inspeccion.maquinaria.tipo_maquinaria.nombre
-                )
+                texto(inspeccion.maquinaria.tipo_maquinaria.nombre)
                 if inspeccion.maquinaria.tipo_maquinaria
                 else "Maquinaria"
             )
@@ -3187,164 +2819,63 @@ class InspeccionService:
         # INFORMACIÓN GENERAL
         # =========================================================
 
-        elementos.append(
-            Paragraph(
-                "INFORMACIÓN GENERAL",
-                seccion
-            )
-        )
+        elementos.append(Paragraph("INFORMACIÓN GENERAL", seccion))
 
         tabla_general = Table(
             [
                 [
+                    safe_paragraph("OPERADOR", respuesta_style),
                     safe_paragraph(
-                        "OPERADOR",
-                        respuesta_style
+                        inspeccion.usuario.nombre if inspeccion.usuario else "-", normal
                     ),
+                    safe_paragraph("ACTIVO", respuesta_style),
+                    safe_paragraph(activo, normal),
+                ],
+                [
+                    safe_paragraph("TIPO DE ACTIVO", respuesta_style),
+                    safe_paragraph(tipo_activo, normal),
+                    safe_paragraph("PLANTILLA", respuesta_style),
                     safe_paragraph(
-                        inspeccion.usuario.nombre
-                        if inspeccion.usuario
-                        else "-",
-                        normal
-                    ),
-
-                    safe_paragraph(
-                        "ACTIVO",
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        activo,
-                        normal
+                        inspeccion.plantilla.nombre if inspeccion.plantilla else "-",
+                        normal,
                     ),
                 ],
-
                 [
-                    safe_paragraph(
-                        "TIPO DE ACTIVO",
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        tipo_activo,
-                        normal
-                    ),
-
-                    safe_paragraph(
-                        "PLANTILLA",
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        inspeccion.plantilla.nombre
-                        if inspeccion.plantilla
-                        else "-",
-                        normal
-                    ),
-                ],
-
-                [
-                    safe_paragraph(
-                        "INICIO",
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        fecha_formateada(
-                            inspeccion.hora_inicio
-                        ),
-                        normal
-                    ),
-
-                    safe_paragraph(
-                        "FINALIZACIÓN",
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        fecha_formateada(
-                            inspeccion.hora_fin
-                        ),
-                        normal
-                    ),
+                    safe_paragraph("INICIO", respuesta_style),
+                    safe_paragraph(fecha_formateada(inspeccion.hora_inicio), normal),
+                    safe_paragraph("FINALIZACIÓN", respuesta_style),
+                    safe_paragraph(fecha_formateada(inspeccion.hora_fin), normal),
                 ],
             ],
-            colWidths=[
-                32 * mm,
-                54 * mm,
-                32 * mm,
-                55 * mm
-            ]
+            colWidths=[32 * mm, 54 * mm, 32 * mm, 55 * mm],
         )
 
         tabla_general.setStyle(
-            TableStyle([
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    GRIS_BORDE
-                ),
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (0, -1),
-                    AZUL_CLARO
-                ),
-                (
-                    "BACKGROUND",
-                    (2, 0),
-                    (2, -1),
-                    AZUL_CLARO
-                ),
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE"
-                ),
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-            ])
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                    ("BACKGROUND", (0, 0), (0, -1), AZUL_CLARO),
+                    ("BACKGROUND", (2, 0), (2, -1), AZUL_CLARO),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
         )
 
-        elementos.append(
-            tabla_general
-        )
+        elementos.append(tabla_general)
 
-        elementos.append(
-            Spacer(1, 6 * mm)
-        )
+        elementos.append(Spacer(1, 6 * mm))
 
         # =========================================================
         # LECTURAS DEL ACTIVO
         # =========================================================
 
-        tipo_medicion = (
-            texto(
-                inspeccion.plantilla.tipo_medicion
-                if inspeccion.plantilla
-                else ""
-            ).upper()
-        )
+        tipo_medicion = texto(
+            inspeccion.plantilla.tipo_medicion if inspeccion.plantilla else ""
+        ).upper()
 
         tiene_lecturas = (
             inspeccion.contador_inicial is not None
@@ -3355,12 +2886,7 @@ class InspeccionService:
 
         if tiene_lecturas:
 
-            elementos.append(
-                Paragraph(
-                    "LECTURA DEL ACTIVO",
-                    seccion
-                )
-            )
+            elementos.append(Paragraph("LECTURA DEL ACTIVO", seccion))
 
             nombre_medicion = "Lectura"
 
@@ -3381,121 +2907,58 @@ class InspeccionService:
             tabla_lecturas = Table(
                 [
                     [
-                        safe_paragraph(
-                            "LECTURA INICIAL",
-                            respuesta_style
-                        ),
+                        safe_paragraph("LECTURA INICIAL", respuesta_style),
                         safe_paragraph(
                             (
-                                f"{inspeccion.contador_inicial}"
-                                f"{unidad}"
-                                if inspeccion.contador_inicial
-                                is not None
+                                f"{inspeccion.contador_inicial}" f"{unidad}"
+                                if inspeccion.contador_inicial is not None
                                 else "-"
                             ),
-                            normal
+                            normal,
                         ),
-
-                        safe_paragraph(
-                            "LECTURA FINAL",
-                            respuesta_style
-                        ),
+                        safe_paragraph("LECTURA FINAL", respuesta_style),
                         safe_paragraph(
                             (
-                                f"{inspeccion.contador_final}"
-                                f"{unidad}"
-                                if inspeccion.contador_final
-                                is not None
+                                f"{inspeccion.contador_final}" f"{unidad}"
+                                if inspeccion.contador_final is not None
                                 else "-"
                             ),
-                            normal
+                            normal,
                         ),
                     ]
                 ],
-                colWidths=[
-                    38 * mm,
-                    48 * mm,
-                    38 * mm,
-                    49 * mm
-                ]
+                colWidths=[38 * mm, 48 * mm, 38 * mm, 49 * mm],
             )
 
             tabla_lecturas.setStyle(
-                TableStyle([
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        GRIS_BORDE
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (0, 0),
-                        AZUL_CLARO
-                    ),
-                    (
-                        "BACKGROUND",
-                        (2, 0),
-                        (2, 0),
-                        AZUL_CLARO
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE"
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        7
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        7
-                    ),
-                ])
+                TableStyle(
+                    [
+                        ("GRID", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                        ("BACKGROUND", (0, 0), (0, 0), AZUL_CLARO),
+                        ("BACKGROUND", (2, 0), (2, 0), AZUL_CLARO),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 7),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                    ]
+                )
             )
 
-            elementos.append(
-                tabla_lecturas
-            )
+            elementos.append(tabla_lecturas)
 
-            elementos.append(
-                Spacer(1, 4 * mm)
-            )
+            elementos.append(Spacer(1, 4 * mm))
 
             # -----------------------------------------------------
             # FOTOS DE CONTADORES
             # -----------------------------------------------------
 
             foto_inicial = crear_imagen(
-                inspeccion.foto_contador_inicial,
-                ancho_max=75 * mm,
-                alto_max=55 * mm
+                inspeccion.foto_contador_inicial, ancho_max=75 * mm, alto_max=55 * mm
             )
 
             foto_final = crear_imagen(
-                inspeccion.foto_contador_final,
-                ancho_max=75 * mm,
-                alto_max=55 * mm
+                inspeccion.foto_contador_final, ancho_max=75 * mm, alto_max=55 * mm
             )
 
             if foto_inicial or foto_final:
@@ -3504,194 +2967,95 @@ class InspeccionService:
 
                 if foto_inicial:
 
-                    celdas_fotos.append([
-                        Paragraph(
-                            "<b>Foto lectura inicial</b>",
-                            centro
-                        ),
-                        foto_inicial
-                    ])
+                    celdas_fotos.append(
+                        [Paragraph("<b>Foto lectura inicial</b>", centro), foto_inicial]
+                    )
 
                 else:
 
-                    celdas_fotos.append([
-                        Paragraph(
-                            "<b>Foto lectura inicial</b>",
-                            centro
-                        ),
-                        Paragraph(
-                            "Sin fotografía",
-                            pequeño
-                        )
-                    ])
+                    celdas_fotos.append(
+                        [
+                            Paragraph("<b>Foto lectura inicial</b>", centro),
+                            Paragraph("Sin fotografía", pequeño),
+                        ]
+                    )
 
                 if foto_final:
 
-                    celdas_fotos.append([
-                        Paragraph(
-                            "<b>Foto lectura final</b>",
-                            centro
-                        ),
-                        foto_final
-                    ])
+                    celdas_fotos.append(
+                        [Paragraph("<b>Foto lectura final</b>", centro), foto_final]
+                    )
 
                 else:
 
-                    celdas_fotos.append([
-                        Paragraph(
-                            "<b>Foto lectura final</b>",
-                            centro
-                        ),
-                        Paragraph(
-                            "Sin fotografía",
-                            pequeño
-                        )
-                    ])
+                    celdas_fotos.append(
+                        [
+                            Paragraph("<b>Foto lectura final</b>", centro),
+                            Paragraph("Sin fotografía", pequeño),
+                        ]
+                    )
 
                 tabla_fotos_contador = Table(
                     [
-                        [
-                            celdas_fotos[0][0],
-                            celdas_fotos[1][0]
-                        ],
-                        [
-                            celdas_fotos[0][1],
-                            celdas_fotos[1][1]
-                        ]
+                        [celdas_fotos[0][0], celdas_fotos[1][0]],
+                        [celdas_fotos[0][1], celdas_fotos[1][1]],
                     ],
-                    colWidths=[
-                        85 * mm,
-                        85 * mm
-                    ]
+                    colWidths=[85 * mm, 85 * mm],
                 )
 
                 tabla_fotos_contador.setStyle(
-                    TableStyle([
-                        (
-                            "BOX",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            GRIS_BORDE
-                        ),
-                        (
-                            "INNERGRID",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            GRIS_BORDE
-                        ),
-                        (
-                            "BACKGROUND",
-                            (0, 0),
-                            (-1, 0),
-                            GRIS_CLARO
-                        ),
-                        (
-                            "ALIGN",
-                            (0, 0),
-                            (-1, -1),
-                            "CENTER"
-                        ),
-                        (
-                            "VALIGN",
-                            (0, 0),
-                            (-1, -1),
-                            "MIDDLE"
-                        ),
-                        (
-                            "TOPPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            6
-                        ),
-                        (
-                            "BOTTOMPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            6
-                        ),
-                    ])
+                    TableStyle(
+                        [
+                            ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                            ("INNERGRID", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                            ("BACKGROUND", (0, 0), (-1, 0), GRIS_CLARO),
+                            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("TOPPADDING", (0, 0), (-1, -1), 6),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                        ]
+                    )
                 )
 
-                elementos.append(
-                    tabla_fotos_contador
-                )
+                elementos.append(tabla_fotos_contador)
 
-                elementos.append(
-                    Spacer(1, 5 * mm)
-                )
+                elementos.append(Spacer(1, 5 * mm))
 
         # =========================================================
         # RESPUESTAS DE LA INSPECCIÓN
         # =========================================================
 
-        respuestas_por_item = {
-            r.item_id: r
-            for r in inspeccion.respuestas
-        }
+        respuestas_por_item = {r.item_id: r for r in inspeccion.respuestas}
 
         for categoria in inspeccion.plantilla.categorias:
 
-            elementos.append(
-                Paragraph(
-                    texto(
-                        categoria.nombre,
-                        "Categoría"
-                    ),
-                    seccion
-                )
-            )
+            elementos.append(Paragraph(texto(categoria.nombre, "Categoría"), seccion))
 
-            filas = [[
-                Paragraph(
-                    "<b>Ítem</b>",
-                    centro
-                ),
-                Paragraph(
-                    "<b>Respuesta</b>",
-                    centro
-                ),
-                Paragraph(
-                    "<b>Observación</b>",
-                    centro
-                )
-            ]]
+            filas = [
+                [
+                    Paragraph("<b>Ítem</b>", centro),
+                    Paragraph("<b>Respuesta</b>", centro),
+                    Paragraph("<b>Observación</b>", centro),
+                ]
+            ]
 
             filas_con_fotos = []
 
             for item in categoria.items:
 
-                respuesta = respuestas_por_item.get(
-                    item.id
-                )
+                respuesta = respuestas_por_item.get(item.id)
 
-                valor = (
-                    respuesta.valor
-                    if respuesta
-                    else ""
-                )
+                valor = respuesta.valor if respuesta else ""
 
-                observacion = (
-                    respuesta.observacion
-                    if respuesta
-                    else ""
-                )
+                observacion = respuesta.observacion if respuesta else ""
 
-                filas.append([
-                    safe_paragraph(
-                        item.descripcion,
-                        pregunta_style
-                    ),
-                    safe_paragraph(
-                        valor,
-                        respuesta_style
-                    ),
-                    safe_paragraph(
-                        observacion,
-                        observacion_style
-                    )
-                ])
+                filas.append(
+                    [
+                        safe_paragraph(item.descripcion, pregunta_style),
+                        safe_paragraph(valor, respuesta_style),
+                        safe_paragraph(observacion, observacion_style),
+                    ]
+                )
 
                 # ---------------------------------------------
                 # Fotos asociadas a la respuesta
@@ -3704,19 +3068,12 @@ class InspeccionService:
                     for foto in respuesta.fotos:
 
                         imagen = crear_imagen(
-                            foto.archivo,
-                            ancho_max=48 * mm,
-                            alto_max=42 * mm
+                            foto.archivo, ancho_max=48 * mm, alto_max=42 * mm
                         )
 
                         if imagen:
 
-                            fotos_validas.append(
-                                (
-                                    foto,
-                                    imagen
-                                )
-                            )
+                            fotos_validas.append((foto, imagen))
 
                     if fotos_validas:
 
@@ -3724,33 +3081,21 @@ class InspeccionService:
 
                         for foto, imagen in fotos_validas:
 
-                            info = [
-                                imagen,
-                                Spacer(1, 1 * mm)
-                            ]
+                            info = [imagen, Spacer(1, 1 * mm)]
 
                             metadata = []
 
                             if foto.direccion:
 
-                                metadata.append(
-                                    texto(
-                                        foto.direccion
-                                    )
-                                )
+                                metadata.append(texto(foto.direccion))
 
                             if foto.fecha_dispositivo:
 
                                 metadata.append(
-                                    fecha_formateada(
-                                        foto.fecha_dispositivo
-                                    )
+                                    fecha_formateada(foto.fecha_dispositivo)
                                 )
 
-                            if (
-                                foto.latitud is not None
-                                and foto.longitud is not None
-                            ):
+                            if foto.latitud is not None and foto.longitud is not None:
 
                                 metadata.append(
                                     (
@@ -3762,63 +3107,23 @@ class InspeccionService:
 
                             if metadata:
 
-                                info.append(
-                                    Paragraph(
-                                        "<br/>".join(
-                                            metadata
-                                        ),
-                                        pequeño
-                                    )
-                                )
+                                info.append(Paragraph("<br/>".join(metadata), pequeño))
 
-                            bloque = Table(
-                                [[
-                                    info
-                                ]],
-                                colWidths=[
-                                    53 * mm
-                                ]
-                            )
+                            bloque = Table([[info]], colWidths=[53 * mm])
 
                             bloque.setStyle(
-                                TableStyle([
-                                    (
-                                        "BOX",
-                                        (0, 0),
-                                        (-1, -1),
-                                        0.4,
-                                        GRIS_BORDE
-                                    ),
-                                    (
-                                        "ALIGN",
-                                        (0, 0),
-                                        (-1, -1),
-                                        "CENTER"
-                                    ),
-                                    (
-                                        "VALIGN",
-                                        (0, 0),
-                                        (-1, -1),
-                                        "MIDDLE"
-                                    ),
-                                    (
-                                        "TOPPADDING",
-                                        (0, 0),
-                                        (-1, -1),
-                                        4
-                                    ),
-                                    (
-                                        "BOTTOMPADDING",
-                                        (0, 0),
-                                        (-1, -1),
-                                        4
-                                    ),
-                                ])
+                                TableStyle(
+                                    [
+                                        ("BOX", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+                                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                    ]
+                                )
                             )
 
-                            fotos_fila.append(
-                                bloque
-                            )
+                            fotos_fila.append(bloque)
 
                         # -----------------------------------------
                         # Agregar fila de fotografías
@@ -3828,25 +3133,18 @@ class InspeccionService:
 
                             while len(fotos_fila) < 3:
 
-                                fotos_fila.append(
-                                    ""
-                                )
+                                fotos_fila.append("")
 
-                            filas.append([
-                                Paragraph(
-                                    "<b>Fotografías</b>",
-                                    pequeño
-                                ),
-                                "",
-                                Table(
-                                    [fotos_fila],
-                                    colWidths=[
-                                        57 * mm,
-                                        57 * mm,
-                                        57 * mm
-                                    ]
-                                )
-                            ])
+                            filas.append(
+                                [
+                                    Paragraph("<b>Fotografías</b>", pequeño),
+                                    "",
+                                    Table(
+                                        [fotos_fila],
+                                        colWidths=[57 * mm, 57 * mm, 57 * mm],
+                                    ),
+                                ]
+                            )
 
             tabla_respuestas = Table(
                 filas,
@@ -3855,94 +3153,34 @@ class InspeccionService:
                     28 * mm,
                     83 * mm,
                 ],
-                repeatRows=1
+                repeatRows=1,
             )
 
             tabla_respuestas.setStyle(
-                TableStyle([
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.35,
-                        GRIS_BORDE
-                    ),
-
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        AZUL_MEDIO
-                    ),
-
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        BLANCO
-                    ),
-
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold"
-                    ),
-
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "TOP"
-                    ),
-
-                    (
-                        "ROWBACKGROUNDS",
-                        (0, 1),
-                        (-1, -1),
-                        [
-                            BLANCO,
-                            colors.HexColor("#F8FAFC")
-                        ]
-                    ),
-
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-                ])
+                TableStyle(
+                    [
+                        ("GRID", (0, 0), (-1, -1), 0.35, GRIS_BORDE),
+                        ("BACKGROUND", (0, 0), (-1, 0), AZUL_MEDIO),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [BLANCO, colors.HexColor("#F8FAFC")],
+                        ),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
             )
 
-            elementos.append(
-                tabla_respuestas
-            )
+            elementos.append(tabla_respuestas)
 
-            elementos.append(
-                Spacer(1, 5 * mm)
-            )
+            elementos.append(Spacer(1, 5 * mm))
 
         # =========================================================
         # OBSERVACIONES GENERALES
@@ -3950,92 +3188,41 @@ class InspeccionService:
 
         if inspeccion.observaciones_generales:
 
-            elementos.append(
-                Paragraph(
-                    "OBSERVACIONES GENERALES",
-                    seccion
-                )
-            )
+            elementos.append(Paragraph("OBSERVACIONES GENERALES", seccion))
 
             tabla_observaciones = Table(
-                [[
-                    safe_paragraph(
-                        inspeccion.observaciones_generales,
-                        normal
-                    )
-                ]],
-                colWidths=[186 * mm]
+                [[safe_paragraph(inspeccion.observaciones_generales, normal)]],
+                colWidths=[186 * mm],
             )
 
             tabla_observaciones.setStyle(
-                TableStyle([
-                    (
-                        "BOX",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        GRIS_BORDE
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, -1),
-                        GRIS_CLARO
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8
-                    ),
-                ])
+                TableStyle(
+                    [
+                        ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                        ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                        ("TOPPADDING", (0, 0), (-1, -1), 8),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ]
+                )
             )
 
-            elementos.append(
-                tabla_observaciones
-            )
+            elementos.append(tabla_observaciones)
 
-            elementos.append(
-                Spacer(1, 5 * mm)
-            )
+            elementos.append(Spacer(1, 5 * mm))
 
         # =========================================================
         # ANOMALÍAS
         # =========================================================
 
-        elementos.append(
-            Paragraph(
-                "ANOMALÍAS REPORTADAS",
-                seccion
-            )
-        )
+        elementos.append(Paragraph("ANOMALÍAS REPORTADAS", seccion))
 
         if inspeccion.anomalias:
 
             for anomalia in inspeccion.anomalias:
 
-                prioridad = texto(
-                    anomalia.prioridad,
-                    "MEDIA"
-                ).upper()
+                prioridad = texto(anomalia.prioridad, "MEDIA").upper()
 
                 if prioridad == "CRITICA":
                     color_prioridad = ROJO
@@ -4054,130 +3241,64 @@ class InspeccionService:
                     fondo_prioridad = GRIS_CLARO
 
                 cabecera_anomalia = Table(
-                    [[
-                        safe_paragraph(
-                            anomalia.titulo,
-                            respuesta_style
-                        ),
-                        Paragraph(
-                            f"<b>{prioridad}</b>",
-                            ParagraphStyle(
-                                "Prioridad",
-                                parent=normal,
-                                fontSize=7.5,
-                                alignment=TA_CENTER,
-                                textColor=color_prioridad
-                            )
-                        )
-                    ]],
-                    colWidths=[
-                        145 * mm,
-                        41 * mm
-                    ]
+                    [
+                        [
+                            safe_paragraph(anomalia.titulo, respuesta_style),
+                            Paragraph(
+                                f"<b>{prioridad}</b>",
+                                ParagraphStyle(
+                                    "Prioridad",
+                                    parent=normal,
+                                    fontSize=7.5,
+                                    alignment=TA_CENTER,
+                                    textColor=color_prioridad,
+                                ),
+                            ),
+                        ]
+                    ],
+                    colWidths=[145 * mm, 41 * mm],
                 )
 
                 cabecera_anomalia.setStyle(
-                    TableStyle([
-                        (
-                            "BOX",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            GRIS_BORDE
-                        ),
-                        (
-                            "BACKGROUND",
-                            (1, 0),
-                            (1, 0),
-                            fondo_prioridad
-                        ),
-                        (
-                            "VALIGN",
-                            (0, 0),
-                            (-1, -1),
-                            "MIDDLE"
-                        ),
-                        (
-                            "LEFTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                        (
-                            "RIGHTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                        (
-                            "TOPPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            6
-                        ),
-                        (
-                            "BOTTOMPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            6
-                        ),
-                    ])
+                    TableStyle(
+                        [
+                            ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                            ("BACKGROUND", (1, 0), (1, 0), fondo_prioridad),
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                            ("TOPPADDING", (0, 0), (-1, -1), 6),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                        ]
+                    )
                 )
 
-                elementos.append(
-                    cabecera_anomalia
-                )
+                elementos.append(cabecera_anomalia)
 
                 descripcion = Table(
-                    [[
-                        safe_paragraph(
-                            anomalia.descripcion,
-                            normal,
-                            "Sin descripción."
-                        )
-                    ]],
-                    colWidths=[186 * mm]
+                    [
+                        [
+                            safe_paragraph(
+                                anomalia.descripcion, normal, "Sin descripción."
+                            )
+                        ]
+                    ],
+                    colWidths=[186 * mm],
                 )
 
                 descripcion.setStyle(
-                    TableStyle([
-                        (
-                            "BOX",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            GRIS_BORDE
-                        ),
-                        (
-                            "LEFTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                        (
-                            "RIGHTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                        (
-                            "TOPPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                        (
-                            "BOTTOMPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            7
-                        ),
-                    ])
+                    TableStyle(
+                        [
+                            ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                            ("TOPPADDING", (0, 0), (-1, -1), 7),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                        ]
+                    )
                 )
 
-                elementos.append(
-                    descripcion
-                )
+                elementos.append(descripcion)
 
                 # -------------------------------------------------
                 # FOTOS DE LA ANOMALÍA
@@ -4193,242 +3314,128 @@ class InspeccionService:
                 # Por eso buscamos las fotos directamente.
                 # -------------------------------------------------
 
-                fotos_db = AnomaliaFoto.query.filter_by(
-                    anomalia_id=anomalia.id
-                ).all()
+                fotos_db = AnomaliaFoto.query.filter_by(anomalia_id=anomalia.id).all()
 
                 for foto in fotos_db:
 
                     imagen = crear_imagen(
-                        foto.archivo,
-                        ancho_max=55 * mm,
-                        alto_max=48 * mm
+                        foto.archivo, ancho_max=55 * mm, alto_max=48 * mm
                     )
 
                     if imagen:
 
-                        bloque = Table(
-                            [[
-                                imagen
-                            ]],
-                            colWidths=[
-                                58 * mm
-                            ]
-                        )
+                        bloque = Table([[imagen]], colWidths=[58 * mm])
 
                         bloque.setStyle(
-                            TableStyle([
-                                (
-                                    "BOX",
-                                    (0, 0),
-                                    (-1, -1),
-                                    0.5,
-                                    GRIS_BORDE
-                                ),
-                                (
-                                    "ALIGN",
-                                    (0, 0),
-                                    (-1, -1),
-                                    "CENTER"
-                                ),
-                                (
-                                    "VALIGN",
-                                    (0, 0),
-                                    (-1, -1),
-                                    "MIDDLE"
-                                ),
-                                (
-                                    "TOPPADDING",
-                                    (0, 0),
-                                    (-1, -1),
-                                    5
-                                ),
-                                (
-                                    "BOTTOMPADDING",
-                                    (0, 0),
-                                    (-1, -1),
-                                    5
-                                ),
-                            ])
+                            TableStyle(
+                                [
+                                    ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                                ]
+                            )
                         )
 
-                        fotos_anomalia.append(
-                            bloque
-                        )
+                        fotos_anomalia.append(bloque)
 
                 if fotos_anomalia:
 
                     while len(fotos_anomalia) < 3:
 
-                        fotos_anomalia.append(
-                            ""
-                        )
+                        fotos_anomalia.append("")
 
                     tabla_fotos_anomalia = Table(
-                        [fotos_anomalia[:3]],
-                        colWidths=[
-                            62 * mm,
-                            62 * mm,
-                            62 * mm
-                        ]
+                        [fotos_anomalia[:3]], colWidths=[62 * mm, 62 * mm, 62 * mm]
                     )
 
                     tabla_fotos_anomalia.setStyle(
-                        TableStyle([
-                            (
-                                "VALIGN",
-                                (0, 0),
-                                (-1, -1),
-                                "MIDDLE"
-                            ),
-                            (
-                                "ALIGN",
-                                (0, 0),
-                                (-1, -1),
-                                "CENTER"
-                            ),
-                            (
-                                "TOPPADDING",
-                                (0, 0),
-                                (-1, -1),
-                                5
-                            ),
-                            (
-                                "BOTTOMPADDING",
-                                (0, 0),
-                                (-1, -1),
-                                5
-                            ),
-                        ])
-                    )
-
-                    elementos.append(
-                        Spacer(1, 2 * mm)
-                    )
-
-                    elementos.append(
-                        Paragraph(
-                            "<b>Fotografías de la anomalía</b>",
-                            pequeño
+                        TableStyle(
+                            [
+                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                            ]
                         )
                     )
 
+                    elementos.append(Spacer(1, 2 * mm))
+
                     elementos.append(
-                        tabla_fotos_anomalia
+                        Paragraph("<b>Fotografías de la anomalía</b>", pequeño)
                     )
 
-                elementos.append(
-                    Spacer(1, 4 * mm)
-                )
+                    elementos.append(tabla_fotos_anomalia)
+
+                elementos.append(Spacer(1, 4 * mm))
 
         else:
 
             sin_anomalias = Table(
-                [[
-                    Paragraph(
-                        "✓ INSPECCIÓN SIN ANOMALÍAS REPORTADAS",
-                        ParagraphStyle(
-                            "SinAnomalias",
-                            parent=normal,
-                            fontName="Helvetica-Bold",
-                            fontSize=8,
-                            alignment=TA_CENTER,
-                            textColor=VERDE
+                [
+                    [
+                        Paragraph(
+                            "✓ INSPECCIÓN SIN ANOMALÍAS REPORTADAS",
+                            ParagraphStyle(
+                                "SinAnomalias",
+                                parent=normal,
+                                fontName="Helvetica-Bold",
+                                fontSize=8,
+                                alignment=TA_CENTER,
+                                textColor=VERDE,
+                            ),
                         )
-                    )
-                ]],
-                colWidths=[186 * mm]
+                    ]
+                ],
+                colWidths=[186 * mm],
             )
 
             sin_anomalias.setStyle(
-                TableStyle([
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, -1),
-                        VERDE_CLARO
-                    ),
-                    (
-                        "BOX",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        VERDE
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        9
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        9
-                    ),
-                ])
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, -1), VERDE_CLARO),
+                        ("BOX", (0, 0), (-1, -1), 0.5, VERDE),
+                        ("TOPPADDING", (0, 0), (-1, -1), 9),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+                    ]
+                )
             )
 
-            elementos.append(
-                sin_anomalias
-            )
+            elementos.append(sin_anomalias)
 
         # =========================================================
         # FIRMA DEL OPERADOR
         # =========================================================
 
-        elementos.append(
-            Spacer(1, 6 * mm)
-        )
+        elementos.append(Spacer(1, 6 * mm))
 
-        elementos.append(
-            Paragraph(
-                "CIERRE Y FIRMA DEL OPERADOR",
-                seccion
-            )
-        )
+        elementos.append(Paragraph("CIERRE Y FIRMA DEL OPERADOR", seccion))
 
-        firma = crear_imagen(
-            inspeccion.firma_path,
-            ancho_max=70 * mm,
-            alto_max=35 * mm
-        )
+        firma = crear_imagen(inspeccion.firma_path, ancho_max=70 * mm, alto_max=35 * mm)
 
         firma_contenido = []
 
         if firma:
 
-            firma_contenido.append(
-                firma
-            )
+            firma_contenido.append(firma)
 
         else:
 
-            firma_contenido.append(
-                Paragraph(
-                    "Firma no registrada",
-                    pequeño
-                )
-            )
+            firma_contenido.append(Paragraph("Firma no registrada", pequeño))
 
-        firma_contenido.append(
-            Spacer(1, 2 * mm)
-        )
+        firma_contenido.append(Spacer(1, 2 * mm))
 
         firma_contenido.append(
             Paragraph(
-                texto(
-                    inspeccion.usuario.nombre
-                    if inspeccion.usuario
-                    else "Operador"
-                ),
+                texto(inspeccion.usuario.nombre if inspeccion.usuario else "Operador"),
                 ParagraphStyle(
                     "FirmaNombre",
                     parent=normal,
                     fontName="Helvetica-Bold",
-                    alignment=TA_CENTER
-                )
+                    alignment=TA_CENTER,
+                ),
             )
         )
 
@@ -4438,160 +3445,91 @@ class InspeccionService:
                 Paragraph(
                     (
                         "Confirmación: "
-                        + fecha_formateada(
-                            inspeccion.confirmacion_fecha
-                        )
+                        + fecha_formateada(inspeccion.confirmacion_fecha)
                     ),
-                    pequeño
+                    pequeño,
                 )
             )
 
-        firma_tabla = Table(
-            [[
-                firma_contenido
-            ]],
-            colWidths=[90 * mm]
-        )
+        firma_tabla = Table([[firma_contenido]], colWidths=[90 * mm])
 
         firma_tabla.setStyle(
-            TableStyle([
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    GRIS_BORDE
-                ),
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "CENTER"
-                ),
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE"
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    8
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    8
-                ),
-            ])
+            TableStyle(
+                [
+                    ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
         )
 
-        elementos.append(
-            firma_tabla
-        )
+        elementos.append(firma_tabla)
 
         # =========================================================
         # CONSENTIMIENTOS
         # =========================================================
 
         consentimiento = Table(
-            [[
-                Paragraph(
-                    (
-                        "Tratamiento de datos: "
-                        + (
-                            "ACEPTADO"
-                            if inspeccion.tratamiento_datos_aceptado
-                            else "NO ACEPTADO"
-                        )
+            [
+                [
+                    Paragraph(
+                        (
+                            "Tratamiento de datos: "
+                            + (
+                                "ACEPTADO"
+                                if inspeccion.tratamiento_datos_aceptado
+                                else "NO ACEPTADO"
+                            )
+                        ),
+                        pequeño,
                     ),
-                    pequeño
-                ),
-                Paragraph(
-                    (
-                        "Confirmación de firma: "
-                        + (
-                            "CONFIRMADA"
-                            if inspeccion.confirma_firma
-                            else "NO CONFIRMADA"
-                        )
+                    Paragraph(
+                        (
+                            "Confirmación de firma: "
+                            + (
+                                "CONFIRMADA"
+                                if inspeccion.confirma_firma
+                                else "NO CONFIRMADA"
+                            )
+                        ),
+                        pequeño,
                     ),
-                    pequeño
-                )
-            ]],
-            colWidths=[
-                93 * mm,
-                93 * mm
-            ]
+                ]
+            ],
+            colWidths=[93 * mm, 93 * mm],
         )
 
         consentimiento.setStyle(
-            TableStyle([
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, -1),
-                    GRIS_CLARO
-                ),
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.4,
-                    GRIS_BORDE
-                ),
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5
-                ),
-            ])
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
+                    ("BOX", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
         )
 
-        elementos.append(
-            Spacer(1, 3 * mm)
-        )
+        elementos.append(Spacer(1, 3 * mm))
 
-        elementos.append(
-            consentimiento
-        )
+        elementos.append(consentimiento)
 
         # =========================================================
         # PIE FINAL
         # =========================================================
 
-        elementos.append(
-            Spacer(1, 7 * mm)
-        )
+        elementos.append(Spacer(1, 7 * mm))
 
         elementos.append(
             Paragraph(
                 "Documento generado automáticamente por IntelliFeet. "
                 "La información contenida corresponde al registro "
                 "realizado durante la inspección preoperacional.",
-                pequeño
+                pequeño,
             )
         )
 
@@ -4599,16 +3537,11 @@ class InspeccionService:
         # GENERAR PDF
         # =========================================================
 
-        doc.build(
-            elementos,
-            onFirstPage=dibujar_footer,
-            onLaterPages=dibujar_footer
-        )
+        doc.build(elementos, onFirstPage=dibujar_footer, onLaterPages=dibujar_footer)
 
         buffer.seek(0)
 
         return buffer
-
 
     @staticmethod
     def obtener_reporte_preoperacionales(
@@ -4670,10 +3603,7 @@ class InspeccionService:
         # =========================================================
 
         inspecciones = InspeccionService.obtener_reporte_preoperacionales(
-            mes,
-            anio,
-            vehiculo_id,
-            maquinaria_id
+            mes, anio, vehiculo_id, maquinaria_id
         )
 
         buffer = BytesIO()
@@ -4834,38 +3764,31 @@ class InspeccionService:
 
             if estado == "FINALIZADA":
                 return Paragraph(
-                    f'<font color="#15803D"><b>{estado}</b></font>',
-                    estado_style
+                    f'<font color="#15803D"><b>{estado}</b></font>', estado_style
                 )
 
             if estado == "REVISADA":
                 return Paragraph(
-                    f'<font color="#1E40AF"><b>{estado}</b></font>',
-                    estado_style
+                    f'<font color="#1E40AF"><b>{estado}</b></font>', estado_style
                 )
 
             if estado == "PENDIENTE_CIERRE":
                 return Paragraph(
                     f'<font color="#C2410C"><b>PENDIENTE CIERRE</b></font>',
-                    estado_style
+                    estado_style,
                 )
 
             if estado == "ANULADA":
                 return Paragraph(
-                    f'<font color="#B91C1C"><b>{estado}</b></font>',
-                    estado_style
+                    f'<font color="#B91C1C"><b>{estado}</b></font>', estado_style
                 )
 
             if estado == "EN_PROCESO":
                 return Paragraph(
-                    f'<font color="#C2410C"><b>EN PROCESO</b></font>',
-                    estado_style
+                    f'<font color="#C2410C"><b>EN PROCESO</b></font>', estado_style
                 )
 
-            return Paragraph(
-                f'<b>{estado}</b>',
-                estado_style
-            )
+            return Paragraph(f"<b>{estado}</b>", estado_style)
 
         # =========================================================
         # ELEMENTOS
@@ -4890,18 +3813,9 @@ class InspeccionService:
             img.hAlign = "LEFT"
 
             encabezado_texto = [
-                Paragraph(
-                    "REPORTE DE INSPECCIONES<br/>PREOPERACIONALES",
-                    titulo
-                ),
-                Paragraph(
-                    f"Periodo de consulta: <b>{mes:02d}/{anio}</b>",
-                    subtitulo
-                ),
-                Paragraph(
-                    "Sistema de Gestión Operacional · IntelliFeet",
-                    subtitulo
-                ),
+                Paragraph("REPORTE DE INSPECCIONES<br/>PREOPERACIONALES", titulo),
+                Paragraph(f"Periodo de consulta: <b>{mes:02d}/{anio}</b>", subtitulo),
+                Paragraph("Sistema de Gestión Operacional · IntelliFeet", subtitulo),
             ]
 
             encabezado = Table(
@@ -4912,18 +3826,9 @@ class InspeccionService:
         else:
 
             encabezado_texto = [
-                Paragraph(
-                    "REPORTE DE INSPECCIONES PREOPERACIONALES",
-                    titulo
-                ),
-                Paragraph(
-                    f"Periodo de consulta: <b>{mes:02d}/{anio}</b>",
-                    subtitulo
-                ),
-                Paragraph(
-                    "Sistema de Gestión Operacional · IntelliFeet",
-                    subtitulo
-                ),
+                Paragraph("REPORTE DE INSPECCIONES PREOPERACIONALES", titulo),
+                Paragraph(f"Periodo de consulta: <b>{mes:02d}/{anio}</b>", subtitulo),
+                Paragraph("Sistema de Gestión Operacional · IntelliFeet", subtitulo),
             ]
 
             encabezado = Table(
@@ -4952,15 +3857,10 @@ class InspeccionService:
                 rowHeights=[1.5 * mm],
                 style=TableStyle(
                     [
-                        (
-                            "BACKGROUND",
-                            (0, 0),
-                            (-1, -1),
-                            AZUL_MEDIO
-                        ),
+                        ("BACKGROUND", (0, 0), (-1, -1), AZUL_MEDIO),
                         ("BOX", (0, 0), (-1, -1), 0, AZUL_MEDIO),
                     ]
-                )
+                ),
             )
         )
 
@@ -4982,15 +3882,9 @@ class InspeccionService:
             [
                 [
                     Paragraph("<b>PERIODO</b>", texto),
-                    Paragraph(
-                        f"{mes:02d}/{anio}",
-                        texto
-                    ),
+                    Paragraph(f"{mes:02d}/{anio}", texto),
                     Paragraph("<b>ACTIVO</b>", texto),
-                    Paragraph(
-                        filtro_activo,
-                        texto
-                    ),
+                    Paragraph(filtro_activo, texto),
                 ]
             ],
             colWidths=[28 * mm, 50 * mm, 28 * mm, 64 * mm],
@@ -5001,14 +3895,10 @@ class InspeccionService:
                 [
                     ("BACKGROUND", (0, 0), (0, 0), AZUL_CLARO),
                     ("BACKGROUND", (2, 0), (2, 0), AZUL_CLARO),
-
                     ("TEXTCOLOR", (0, 0), (-1, -1), GRIS_TEXTO),
-
                     ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
                     ("INNERGRID", (0, 0), (-1, -1), 0.3, GRIS_BORDE),
-
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-
                     ("LEFTPADDING", (0, 0), (-1, -1), 5),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 5),
                     ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -5034,10 +3924,7 @@ class InspeccionService:
 
             total_anomalias += len(inspeccion.anomalias)
 
-            estado = texto_seguro(
-                inspeccion.estado,
-                ""
-            ).upper()
+            estado = texto_seguro(inspeccion.estado, "").upper()
 
             if estado in ("FINALIZADA", "REVISADA"):
                 total_finalizadas += 1
@@ -5049,44 +3936,20 @@ class InspeccionService:
             [
                 [
                     [
-                        Paragraph(
-                            str(total_inspecciones),
-                            resumen_numero
-                        ),
-                        Paragraph(
-                            "TOTAL INSPECCIONES",
-                            resumen_label
-                        ),
+                        Paragraph(str(total_inspecciones), resumen_numero),
+                        Paragraph("TOTAL INSPECCIONES", resumen_label),
                     ],
                     [
-                        Paragraph(
-                            str(total_finalizadas),
-                            resumen_numero
-                        ),
-                        Paragraph(
-                            "FINALIZADAS / REVISADAS",
-                            resumen_label
-                        ),
+                        Paragraph(str(total_finalizadas), resumen_numero),
+                        Paragraph("FINALIZADAS / REVISADAS", resumen_label),
                     ],
                     [
-                        Paragraph(
-                            str(total_pendientes),
-                            resumen_numero
-                        ),
-                        Paragraph(
-                            "PENDIENTES DE CIERRE",
-                            resumen_label
-                        ),
+                        Paragraph(str(total_pendientes), resumen_numero),
+                        Paragraph("PENDIENTES DE CIERRE", resumen_label),
                     ],
                     [
-                        Paragraph(
-                            str(total_anomalias),
-                            resumen_numero
-                        ),
-                        Paragraph(
-                            "ANOMALÍAS REPORTADAS",
-                            resumen_label
-                        ),
+                        Paragraph(str(total_anomalias), resumen_numero),
+                        Paragraph("ANOMALÍAS REPORTADAS", resumen_label),
                     ],
                 ]
             ],
@@ -5105,13 +3968,10 @@ class InspeccionService:
                     ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#F0FDF4")),
                     ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#FFF7ED")),
                     ("BACKGROUND", (3, 0), (3, 0), colors.HexColor("#FEF2F2")),
-
                     ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
                     ("INNERGRID", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
-
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-
                     ("LEFTPADDING", (0, 0), (-1, -1), 4),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                     ("TOPPADDING", (0, 0), (-1, -1), 7),
@@ -5128,12 +3988,7 @@ class InspeccionService:
         # TÍTULO DE LA TABLA
         # =========================================================
 
-        elementos.append(
-            Paragraph(
-                "Detalle de inspecciones",
-                seccion
-            )
-        )
+        elementos.append(Paragraph("Detalle de inspecciones", seccion))
 
         # =========================================================
         # TABLA PRINCIPAL
@@ -5151,9 +4006,7 @@ class InspeccionService:
 
         for inspeccion in inspecciones:
 
-            cantidad_anomalias = len(
-                inspeccion.anomalias
-            )
+            cantidad_anomalias = len(inspeccion.anomalias)
 
             # -----------------------------------------------------
             # ACTIVO
@@ -5163,15 +4016,11 @@ class InspeccionService:
 
             if inspeccion.vehiculo:
 
-                activo = texto_seguro(
-                    inspeccion.vehiculo.placa
-                )
+                activo = texto_seguro(inspeccion.vehiculo.placa)
 
             elif inspeccion.maquinaria:
 
-                activo = texto_seguro(
-                    inspeccion.maquinaria.codigo
-                )
+                activo = texto_seguro(inspeccion.maquinaria.codigo)
 
             # -----------------------------------------------------
             # OPERADOR
@@ -5181,17 +4030,13 @@ class InspeccionService:
 
             if inspeccion.usuario:
 
-                operador = texto_seguro(
-                    inspeccion.usuario.nombre
-                )
+                operador = texto_seguro(inspeccion.usuario.nombre)
 
             # -----------------------------------------------------
             # FECHA
             # -----------------------------------------------------
 
-            fecha = fecha_segura(
-                inspeccion.hora_inicio
-            )
+            fecha = fecha_segura(inspeccion.hora_inicio)
 
             # -----------------------------------------------------
             # ANOMALÍAS
@@ -5201,34 +4046,21 @@ class InspeccionService:
 
                 anomalias_cell = Paragraph(
                     f'<font color="#B91C1C"><b>{cantidad_anomalias}</b></font>',
-                    texto_centro
+                    texto_centro,
                 )
 
             else:
 
                 anomalias_cell = Paragraph(
-                    '<font color="#15803D"><b>0</b></font>',
-                    texto_centro
+                    '<font color="#15803D"><b>0</b></font>', texto_centro
                 )
 
             filas.append(
                 [
                     Paragraph(fecha, texto_centro),
-
-                    Paragraph(
-                        f"<b>{activo}</b>",
-                        texto_centro
-                    ),
-
-                    Paragraph(
-                        operador,
-                        texto
-                    ),
-
-                    estado_badge(
-                        inspeccion.estado
-                    ),
-
+                    Paragraph(f"<b>{activo}</b>", texto_centro),
+                    Paragraph(operador, texto),
+                    estado_badge(inspeccion.estado),
                     anomalias_cell,
                 ]
             )
@@ -5251,119 +4083,24 @@ class InspeccionService:
                     # -------------------------------------------------
                     # CABECERA
                     # -------------------------------------------------
-
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        AZUL_MEDIO
-                    ),
-
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        BLANCO
-                    ),
-
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold"
-                    ),
-
-                    (
-                        "ALIGN",
-                        (0, 0),
-                        (-1, 0),
-                        "CENTER"
-                    ),
-
+                    ("BACKGROUND", (0, 0), (-1, 0), AZUL_MEDIO),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                     # -------------------------------------------------
                     # CUERPO
                     # -------------------------------------------------
-
-                    (
-                        "ROWBACKGROUNDS",
-                        (0, 1),
-                        (-1, -1),
-                        [
-                            BLANCO,
-                            GRIS_CLARO
-                        ]
-                    ),
-
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.35,
-                        GRIS_BORDE
-                    ),
-
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE"
-                    ),
-
-                    (
-                        "ALIGN",
-                        (0, 1),
-                        (1, -1),
-                        "CENTER"
-                    ),
-
-                    (
-                        "ALIGN",
-                        (3, 1),
-                        (-1, -1),
-                        "CENTER"
-                    ),
-
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        5
-                    ),
-
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, 0),
-                        7
-                    ),
-
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, 0),
-                        7
-                    ),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
+                    ("GRID", (0, 0), (-1, -1), 0.35, GRIS_BORDE),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 1), (1, -1), "CENTER"),
+                    ("ALIGN", (3, 1), (-1, -1), "CENTER"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, 0), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
                 ]
             )
         )
@@ -5376,87 +4113,42 @@ class InspeccionService:
         # RESUMEN FINAL
         # =========================================================
 
-        elementos.append(
-            Paragraph(
-                "Resumen del periodo",
-                seccion
-            )
-        )
+        elementos.append(Paragraph("Resumen del periodo", seccion))
 
         porcentaje_anomalias = 0
 
         if total_inspecciones > 0:
-            porcentaje_anomalias = (
-                total_anomalias / total_inspecciones
-            )
+            porcentaje_anomalias = total_anomalias / total_inspecciones
 
         porcentaje_finalizadas = 0
 
         if total_inspecciones > 0:
-            porcentaje_finalizadas = (
-                total_finalizadas / total_inspecciones
-            ) * 100
+            porcentaje_finalizadas = (total_finalizadas / total_inspecciones) * 100
 
         resumen = [
             [
-                Paragraph(
-                    "<b>Total de inspecciones</b>",
-                    texto
-                ),
-                Paragraph(
-                    str(total_inspecciones),
-                    texto_centro
-                ),
+                Paragraph("<b>Total de inspecciones</b>", texto),
+                Paragraph(str(total_inspecciones), texto_centro),
             ],
             [
-                Paragraph(
-                    "<b>Inspecciones finalizadas/revisadas</b>",
-                    texto
-                ),
-                Paragraph(
-                    str(total_finalizadas),
-                    texto_centro
-                ),
+                Paragraph("<b>Inspecciones finalizadas/revisadas</b>", texto),
+                Paragraph(str(total_finalizadas), texto_centro),
             ],
             [
-                Paragraph(
-                    "<b>Pendientes de cierre</b>",
-                    texto
-                ),
-                Paragraph(
-                    str(total_pendientes),
-                    texto_centro
-                ),
+                Paragraph("<b>Pendientes de cierre</b>", texto),
+                Paragraph(str(total_pendientes), texto_centro),
             ],
             [
-                Paragraph(
-                    "<b>Total de anomalías</b>",
-                    texto
-                ),
-                Paragraph(
-                    str(total_anomalias),
-                    texto_centro
-                ),
+                Paragraph("<b>Total de anomalías</b>", texto),
+                Paragraph(str(total_anomalias), texto_centro),
             ],
             [
-                Paragraph(
-                    "<b>Promedio de anomalías por inspección</b>",
-                    texto
-                ),
-                Paragraph(
-                    f"{porcentaje_anomalias:.2f}",
-                    texto_centro
-                ),
+                Paragraph("<b>Promedio de anomalías por inspección</b>", texto),
+                Paragraph(f"{porcentaje_anomalias:.2f}", texto_centro),
             ],
             [
-                Paragraph(
-                    "<b>% de inspecciones finalizadas/revisadas</b>",
-                    texto
-                ),
-                Paragraph(
-                    f"{porcentaje_finalizadas:.1f}%",
-                    texto_centro
-                ),
+                Paragraph("<b>% de inspecciones finalizadas/revisadas</b>", texto),
+                Paragraph(f"{porcentaje_finalizadas:.1f}%", texto_centro),
             ],
         ]
 
@@ -5471,69 +4163,15 @@ class InspeccionService:
         tabla_resumen.setStyle(
             TableStyle(
                 [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (0, -1),
-                        AZUL_CLARO
-                    ),
-
-                    (
-                        "BACKGROUND",
-                        (1, 0),
-                        (1, -1),
-                        BLANCO
-                    ),
-
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.4,
-                        GRIS_BORDE
-                    ),
-
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE"
-                    ),
-
-                    (
-                        "ALIGN",
-                        (1, 0),
-                        (1, -1),
-                        "CENTER"
-                    ),
-
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
-
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6
-                    ),
+                    ("BACKGROUND", (0, 0), (0, -1), AZUL_CLARO),
+                    ("BACKGROUND", (1, 0), (1, -1), BLANCO),
+                    ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (1, 0), (1, -1), "CENTER"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
                 ]
             )
         )
@@ -5554,7 +4192,7 @@ class InspeccionService:
                         Paragraph(
                             "<b>No se encontraron inspecciones "
                             "preoperacionales para el periodo seleccionado.</b>",
-                            texto_centro
+                            texto_centro,
                         )
                     ]
                 ],
@@ -5564,43 +4202,12 @@ class InspeccionService:
             mensaje.setStyle(
                 TableStyle(
                     [
-                        (
-                            "BACKGROUND",
-                            (0, 0),
-                            (-1, -1),
-                            AZUL_CLARO
-                        ),
-                        (
-                            "BOX",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            GRIS_BORDE
-                        ),
-                        (
-                            "LEFTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            10
-                        ),
-                        (
-                            "RIGHTPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            10
-                        ),
-                        (
-                            "TOPPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            12
-                        ),
-                        (
-                            "BOTTOMPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            12
-                        ),
+                        ("BACKGROUND", (0, 0), (-1, -1), AZUL_CLARO),
+                        ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                        ("TOPPADDING", (0, 0), (-1, -1), 12),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
                     ]
                 )
             )
@@ -5621,34 +4228,20 @@ class InspeccionService:
             canvas.setStrokeColor(GRIS_BORDE)
             canvas.setLineWidth(0.5)
 
-            canvas.line(
-                15 * mm,
-                12 * mm,
-                ancho - 15 * mm,
-                12 * mm
-            )
+            canvas.line(15 * mm, 12 * mm, ancho - 15 * mm, 12 * mm)
 
             # Texto izquierdo
-            canvas.setFont(
-                "Helvetica",
-                7
-            )
+            canvas.setFont("Helvetica", 7)
 
-            canvas.setFillColor(
-                GRIS_MEDIO
-            )
+            canvas.setFillColor(GRIS_MEDIO)
 
             canvas.drawString(
-                15 * mm,
-                7 * mm,
-                "IntelliFeet · Sistema de Gestión Operacional"
+                15 * mm, 7 * mm, "IntelliFeet · Sistema de Gestión Operacional"
             )
 
             # Página
             canvas.drawRightString(
-                ancho - 15 * mm,
-                7 * mm,
-                f"Página {canvas.getPageNumber()}"
+                ancho - 15 * mm, 7 * mm, f"Página {canvas.getPageNumber()}"
             )
 
             canvas.restoreState()
@@ -5657,16 +4250,11 @@ class InspeccionService:
         # GENERAR PDF
         # =========================================================
 
-        doc.build(
-            elementos,
-            onFirstPage=dibujar_footer,
-            onLaterPages=dibujar_footer
-        )
+        doc.build(elementos, onFirstPage=dibujar_footer, onLaterPages=dibujar_footer)
 
         buffer.seek(0)
 
         return buffer
-
 
     @staticmethod
     def obtener_reporte_preoperacionales(
@@ -5677,16 +4265,11 @@ class InspeccionService:
             joinedload(Inspeccion.usuario),
             joinedload(Inspeccion.vehiculo),
             joinedload(Inspeccion.maquinaria),
-
             joinedload(Inspeccion.anomalias),
-
             joinedload(Inspeccion.respuestas)
             .joinedload(InspeccionRespuesta.item)
             .joinedload(InspeccionItem.categoria),
-
-            joinedload(Inspeccion.respuestas)
-            .joinedload(InspeccionRespuesta.fotos),
-
+            joinedload(Inspeccion.respuestas).joinedload(InspeccionRespuesta.fotos),
         ).filter(
             func.month(Inspeccion.hora_inicio) == mes,
             func.year(Inspeccion.hora_inicio) == anio,
@@ -5694,26 +4277,18 @@ class InspeccionService:
         )
 
         if vehiculo_id:
-            consulta = consulta.filter(
-                Inspeccion.vehiculo_id == vehiculo_id
-            )
+            consulta = consulta.filter(Inspeccion.vehiculo_id == vehiculo_id)
 
         if maquinaria_id:
-            consulta = consulta.filter(
-                Inspeccion.maquinaria_id == maquinaria_id
-            )
+            consulta = consulta.filter(Inspeccion.maquinaria_id == maquinaria_id)
 
-        return consulta.order_by(
-            Inspeccion.hora_inicio.asc()
-        ).all()
-    
+        return consulta.order_by(Inspeccion.hora_inicio.asc()).all()
+
     @staticmethod
     def descargar_libro_preoperacionales(vehiculo_id, anio, mes):
 
         inspecciones = InspeccionService.obtener_libro_preoperacionales(
-            vehiculo_id,
-            anio,
-            mes
+            vehiculo_id, anio, mes
         )
 
         if not inspecciones:
@@ -5792,11 +4367,7 @@ class InspeccionService:
 
         vehiculo = inspecciones[0].vehiculo
 
-        nombre_vehiculo = (
-            vehiculo.placa
-            if vehiculo
-            else "SIN VEHÍCULO"
-        )
+        nombre_vehiculo = vehiculo.placa if vehiculo else "SIN VEHÍCULO"
 
         # =========================================================
         # LOGO
@@ -5854,25 +4425,17 @@ class InspeccionService:
 
                     else:
 
-                        categoria_nombre = (
-                            "INSPECCIÓN PRE-OPERACIONAL"
-                        )
+                        categoria_nombre = "INSPECCIÓN PRE-OPERACIONAL"
 
                         categoria_orden = 9999
 
                     items[item_id] = {
-
                         "item": item,
-
                         "categoria": categoria,
-
                         "categoria_nombre": categoria_nombre,
-
                         "categoria_orden": categoria_orden,
-
                         "item_orden": item.orden or 9999,
-
-                        "respuestas": {}
+                        "respuestas": {},
                     }
 
                 # -------------------------------------------------
@@ -5885,9 +4448,7 @@ class InspeccionService:
                 # GUARDAR RESPUESTA
                 # -------------------------------------------------
 
-                items[item_id]["respuestas"][fecha] = (
-                    respuesta.valor
-                )
+                items[item_id]["respuestas"][fecha] = respuesta.valor
 
         # =========================================================
         # ORDENAR ÍTEMS
@@ -5895,11 +4456,7 @@ class InspeccionService:
 
         items_ordenados = sorted(
             items.values(),
-            key=lambda x: (
-                x["categoria_orden"],
-                x["item_orden"],
-                x["item"].id
-            )
+            key=lambda x: (x["categoria_orden"], x["item_orden"], x["item"].id),
         )
 
         # =========================================================
@@ -5909,22 +4466,11 @@ class InspeccionService:
         from calendar import monthrange
         from datetime import date, timedelta
 
-        ultimo_dia = monthrange(
-            anio,
-            mes
-        )[1]
+        ultimo_dia = monthrange(anio, mes)[1]
 
-        fecha_inicio_mes = date(
-            anio,
-            mes,
-            1
-        )
+        fecha_inicio_mes = date(anio, mes, 1)
 
-        fecha_fin_mes = date(
-            anio,
-            mes,
-            ultimo_dia
-        )
+        fecha_fin_mes = date(anio, mes, ultimo_dia)
 
         semanas = []
 
@@ -5934,37 +4480,21 @@ class InspeccionService:
 
             inicio_semana = fecha_actual
 
-            fin_semana = inicio_semana + timedelta(
-                days=6
-            )
+            fin_semana = inicio_semana + timedelta(days=6)
 
             if fin_semana > fecha_fin_mes:
 
                 fin_semana = fecha_fin_mes
 
-            semanas.append(
-                (
-                    inicio_semana,
-                    fin_semana
-                )
-            )
+            semanas.append((inicio_semana, fin_semana))
 
-            fecha_actual = (
-                fin_semana +
-                timedelta(days=1)
-            )
+            fecha_actual = fin_semana + timedelta(days=1)
 
         # =========================================================
         # GENERAR UNA PÁGINA POR SEMANA
         # =========================================================
 
-        for numero_semana, (
-            inicio_semana,
-            fin_semana
-        ) in enumerate(
-            semanas,
-            start=1
-        ):
+        for numero_semana, (inicio_semana, fin_semana) in enumerate(semanas, start=1):
 
             # =====================================================
             # ENCABEZADO PRINCIPAL
@@ -5974,16 +4504,13 @@ class InspeccionService:
                 [
                     [
                         img,
-
                         Paragraph(
                             "<b>INSPECCIÓN PRE-OPERACIONAL</b><br/>"
                             f"<b>VEHÍCULO: {nombre_vehiculo}</b>",
                             estilo_header,
                         ),
-
                         Paragraph(
-                            "<b>HSE-FOR-022</b><br/>"
-                            "<b>Versión: 003</b>",
+                            "<b>HSE-FOR-022</b><br/>" "<b>Versión: 003</b>",
                             estilo_header,
                         ),
                     ]
@@ -5993,9 +4520,7 @@ class InspeccionService:
                     450,
                     100,
                 ],
-                rowHeights=[
-                    55
-                ],
+                rowHeights=[55],
             )
 
             encabezado.setStyle(
@@ -6008,14 +4533,12 @@ class InspeccionService:
                             0.6,
                             colors.black,
                         ),
-
                         (
                             "VALIGN",
                             (0, 0),
                             (-1, -1),
                             "MIDDLE",
                         ),
-
                         (
                             "ALIGN",
                             (0, 0),
@@ -6026,13 +4549,9 @@ class InspeccionService:
                 )
             )
 
-            elementos.append(
-                encabezado
-            )
+            elementos.append(encabezado)
 
-            elementos.append(
-                Spacer(1, 5)
-            )
+            elementos.append(Spacer(1, 5))
 
             # =====================================================
             # INFORMACIÓN DEL VEHÍCULO
@@ -6040,34 +4559,24 @@ class InspeccionService:
 
             operador = inspecciones[0].usuario
 
-            nombre_operador = (
-                operador.nombre
-                if operador
-                else "SIN OPERADOR"
-            )
+            nombre_operador = operador.nombre if operador else "SIN OPERADOR"
 
             informacion = Table(
                 [
                     [
                         Paragraph(
-                            f"<b>VEHÍCULO:</b> "
-                            f"{nombre_vehiculo}",
+                            f"<b>VEHÍCULO:</b> " f"{nombre_vehiculo}",
                             estilo_normal,
                         ),
-
                         Paragraph(
-                            f"<b>CONDUCTOR / OPERADOR:</b> "
-                            f"{nombre_operador}",
+                            f"<b>CONDUCTOR / OPERADOR:</b> " f"{nombre_operador}",
                             estilo_normal,
                         ),
-
                         Paragraph(
-                            f"<b>MES:</b> "
-                            f"{mes:02d}/{anio}",
+                            f"<b>MES:</b> " f"{mes:02d}/{anio}",
                             estilo_normal,
                         ),
                     ],
-
                     [
                         Paragraph(
                             f"<b>SEMANA:</b> "
@@ -6075,9 +4584,7 @@ class InspeccionService:
                             f"{fin_semana.strftime('%d/%m/%Y')}",
                             estilo_normal,
                         ),
-
                         "",
-
                         Paragraph(
                             "<b>TIPO:</b> PRE-OPERACIONAL",
                             estilo_normal,
@@ -6101,7 +4608,6 @@ class InspeccionService:
                             0.4,
                             colors.black,
                         ),
-
                         (
                             "VALIGN",
                             (0, 0),
@@ -6112,13 +4618,9 @@ class InspeccionService:
                 )
             )
 
-            elementos.append(
-                informacion
-            )
+            elementos.append(informacion)
 
-            elementos.append(
-                Spacer(1, 5)
-            )
+            elementos.append(Spacer(1, 5))
 
             # =====================================================
             # DÍAS DE LA SEMANA
@@ -6130,13 +4632,9 @@ class InspeccionService:
 
             while fecha <= fin_semana:
 
-                dias_semana.append(
-                    fecha
-                )
+                dias_semana.append(fecha)
 
-                fecha += timedelta(
-                    days=1
-                )
+                fecha += timedelta(days=1)
 
             # =====================================================
             # ENCABEZADO DE LA MATRIZ
@@ -6173,9 +4671,7 @@ class InspeccionService:
                     )
                 )
 
-            filas.append(
-                encabezado_dias
-            )
+            filas.append(encabezado_dias)
 
             # =====================================================
             # AGRUPAR POR CATEGORÍA
@@ -6193,20 +4689,13 @@ class InspeccionService:
 
                 if categoria:
 
-                    nombre_categoria = (
-                        categoria.nombre
-                    )
+                    nombre_categoria = categoria.nombre
 
-                    orden_categoria = (
-                        categoria.orden
-                        or 9999
-                    )
+                    orden_categoria = categoria.orden or 9999
 
                 else:
 
-                    nombre_categoria = (
-                        "INSPECCIÓN PRE-OPERACIONAL"
-                    )
+                    nombre_categoria = "INSPECCIÓN PRE-OPERACIONAL"
 
                     orden_categoria = 9999
 
@@ -6218,25 +4707,17 @@ class InspeccionService:
 
                     categorias[nombre_categoria] = {
                         "orden": orden_categoria,
-                        "items": []
+                        "items": [],
                     }
 
-                categorias[
-                    nombre_categoria
-                ]["items"].append(
-                    info_item
-                )
+                categorias[nombre_categoria]["items"].append(info_item)
 
             # =====================================================
             # ORDENAR CATEGORÍAS
             # =====================================================
 
             categorias_ordenadas = sorted(
-                categorias.items(),
-                key=lambda x: (
-                    x[1]["orden"],
-                    x[0]
-                )
+                categorias.items(), key=lambda x: (x[1]["orden"], x[0])
             )
 
             # =====================================================
@@ -6247,9 +4728,7 @@ class InspeccionService:
 
             for nombre_categoria, datos_categoria in categorias_ordenadas:
 
-                lista_items = datos_categoria[
-                    "items"
-                ]
+                lista_items = datos_categoria["items"]
 
                 # -------------------------------------------------
                 # FILA DE CATEGORÍA / COMPONENTE
@@ -6257,9 +4736,7 @@ class InspeccionService:
 
                 fila_categoria = [
                     Paragraph(
-                        str(
-                            nombre_categoria
-                        ).upper(),
+                        str(nombre_categoria).upper(),
                         estilo_componente,
                     )
                 ]
@@ -6268,14 +4745,10 @@ class InspeccionService:
 
                     fila_categoria.append("")
 
-                filas.append(
-                    fila_categoria
-                )
+                filas.append(fila_categoria)
 
                 # Guardamos la posición real
-                filas_componentes.append(
-                    len(filas) - 1
-                )
+                filas_componentes.append(len(filas) - 1)
 
                 # -------------------------------------------------
                 # ÍTEMS
@@ -6285,16 +4758,11 @@ class InspeccionService:
 
                     item = info_item["item"]
 
-                    respuestas = info_item[
-                        "respuestas"
-                    ]
+                    respuestas = info_item["respuestas"]
 
                     fila = [
                         Paragraph(
-                            str(
-                                item.descripcion
-                                or ""
-                            ),
+                            str(item.descripcion or ""),
                             estilo_item,
                         )
                     ]
@@ -6305,9 +4773,7 @@ class InspeccionService:
 
                     for fecha in dias_semana:
 
-                        valor = respuestas.get(
-                            fecha
-                        )
+                        valor = respuestas.get(fecha)
 
                         if valor is None:
 
@@ -6315,11 +4781,7 @@ class InspeccionService:
 
                         else:
 
-                            valor_normalizado = (
-                                str(valor)
-                                .strip()
-                                .upper()
-                            )
+                            valor_normalizado = str(valor).strip().upper()
 
                             if valor_normalizado in [
                                 "SI",
@@ -6353,9 +4815,7 @@ class InspeccionService:
 
                             else:
 
-                                marca = str(
-                                    valor
-                                )
+                                marca = str(valor)
 
                         fila.append(
                             Paragraph(
@@ -6364,40 +4824,23 @@ class InspeccionService:
                             )
                         )
 
-                    filas.append(
-                        fila
-                    )
+                    filas.append(fila)
 
             # =====================================================
             # TABLA PRINCIPAL
             # =====================================================
 
-            cantidad_dias = len(
-                dias_semana
-            )
+            cantidad_dias = len(dias_semana)
 
             ancho_total = 780
 
             ancho_item = 430
 
-            ancho_dia = (
-                ancho_total -
-                ancho_item
-            ) / max(
-                cantidad_dias,
-                1
-            )
+            ancho_dia = (ancho_total - ancho_item) / max(cantidad_dias, 1)
 
             tabla = Table(
                 filas,
-                colWidths=[
-                    ancho_item
-                ]
-                +
-                [
-                    ancho_dia
-                    for _ in dias_semana
-                ],
+                colWidths=[ancho_item] + [ancho_dia for _ in dias_semana],
                 repeatRows=1,
             )
 
@@ -6406,11 +4849,9 @@ class InspeccionService:
             # =====================================================
 
             estilos_tabla = [
-
                 # -------------------------------------------------
                 # BORDES
                 # -------------------------------------------------
-
                 (
                     "GRID",
                     (0, 0),
@@ -6418,75 +4859,63 @@ class InspeccionService:
                     0.35,
                     colors.black,
                 ),
-
                 # -------------------------------------------------
                 # CABECERA
                 # -------------------------------------------------
-
                 (
                     "BACKGROUND",
                     (0, 0),
                     (-1, 0),
                     AZUL_INTELLIFEET,
                 ),
-
                 (
                     "TEXTCOLOR",
                     (0, 0),
                     (-1, 0),
                     colors.white,
                 ),
-
                 (
                     "FONTNAME",
                     (0, 0),
                     (-1, 0),
                     "Helvetica-Bold",
                 ),
-
                 # -------------------------------------------------
                 # ALINEACIÓN
                 # -------------------------------------------------
-
                 (
                     "VALIGN",
                     (0, 0),
                     (-1, -1),
                     "MIDDLE",
                 ),
-
                 (
                     "ALIGN",
                     (1, 0),
                     (-1, -1),
                     "CENTER",
                 ),
-
                 # -------------------------------------------------
                 # PADDING
                 # -------------------------------------------------
-
                 (
                     "LEFTPADDING",
                     (0, 0),
                     (-1, -1),
                     3,
                 ),
-
                 (
                     "RIGHTPADDING",
                     (0, 0),
                     (-1, -1),
                     3,
                 ),
-
                 (
                     "TOPPADDING",
                     (0, 0),
                     (-1, -1),
                     2,
                 ),
-
                 (
                     "BOTTOMPADDING",
                     (0, 0),
@@ -6503,35 +4932,30 @@ class InspeccionService:
 
                 estilos_tabla.extend(
                     [
-
                         (
                             "BACKGROUND",
                             (0, fila_categoria),
                             (-1, fila_categoria),
                             AZUL_CLARO,
                         ),
-
                         (
                             "TEXTCOLOR",
                             (0, fila_categoria),
                             (-1, fila_categoria),
                             AZUL_OSCURO,
                         ),
-
                         (
                             "FONTNAME",
                             (0, fila_categoria),
                             (-1, fila_categoria),
                             "Helvetica-Bold",
                         ),
-
                         (
                             "ALIGN",
                             (0, fila_categoria),
                             (0, fila_categoria),
                             "LEFT",
                         ),
-
                         (
                             "VALIGN",
                             (0, fila_categoria),
@@ -6541,19 +4965,11 @@ class InspeccionService:
                     ]
                 )
 
-            tabla.setStyle(
-                TableStyle(
-                    estilos_tabla
-                )
-            )
+            tabla.setStyle(TableStyle(estilos_tabla))
 
-            elementos.append(
-                tabla
-            )
+            elementos.append(tabla)
 
-            elementos.append(
-                Spacer(1, 8)
-            )
+            elementos.append(Spacer(1, 8))
 
             # =====================================================
             # KILOMETRAJE
@@ -6566,14 +4982,11 @@ class InspeccionService:
                             "<b>KILOMETRAJE INICIAL</b>",
                             estilo_header,
                         ),
-
                         "",
-
                         Paragraph(
                             "<b>KILOMETRAJE FINAL</b>",
                             estilo_header,
                         ),
-
                         "",
                     ]
                 ],
@@ -6595,35 +5008,30 @@ class InspeccionService:
                             0.4,
                             colors.black,
                         ),
-
                         (
                             "BACKGROUND",
                             (0, 0),
                             (0, 0),
                             AZUL_MUY_CLARO,
                         ),
-
                         (
                             "BACKGROUND",
                             (2, 0),
                             (2, 0),
                             AZUL_MUY_CLARO,
                         ),
-
                         (
                             "TEXTCOLOR",
                             (0, 0),
                             (-1, -1),
                             AZUL_OSCURO,
                         ),
-
                         (
                             "VALIGN",
                             (0, 0),
                             (-1, -1),
                             "MIDDLE",
                         ),
-
                         (
                             "ALIGN",
                             (0, 0),
@@ -6634,13 +5042,9 @@ class InspeccionService:
                 )
             )
 
-            elementos.append(
-                kilometraje
-            )
+            elementos.append(kilometraje)
 
-            elementos.append(
-                Spacer(1, 5)
-            )
+            elementos.append(Spacer(1, 5))
 
             # =====================================================
             # OBSERVACIONES
@@ -6654,18 +5058,10 @@ class InspeccionService:
                             estilo_header,
                         )
                     ],
-
-                    [
-                        ""
-                    ],
-
-                    [
-                        ""
-                    ],
+                    [""],
+                    [""],
                 ],
-                colWidths=[
-                    700
-                ],
+                colWidths=[700],
                 rowHeights=[
                     18,
                     20,
@@ -6683,21 +5079,18 @@ class InspeccionService:
                             0.4,
                             colors.black,
                         ),
-
                         (
                             "BACKGROUND",
                             (0, 0),
                             (-1, 0),
                             AZUL_MUY_CLARO,
                         ),
-
                         (
                             "TEXTCOLOR",
                             (0, 0),
                             (-1, 0),
                             AZUL_OSCURO,
                         ),
-
                         (
                             "VALIGN",
                             (0, 0),
@@ -6708,13 +5101,9 @@ class InspeccionService:
                 )
             )
 
-            elementos.append(
-                observaciones
-            )
+            elementos.append(observaciones)
 
-            elementos.append(
-                Spacer(1, 5)
-            )
+            elementos.append(Spacer(1, 5))
 
             # =====================================================
             # FIRMA
@@ -6724,18 +5113,14 @@ class InspeccionService:
                 [
                     [
                         Paragraph(
-                            "<b>FIRMA DIARIA "
-                            "CONDUCTOR / OPERADOR</b>",
+                            "<b>FIRMA DIARIA " "CONDUCTOR / OPERADOR</b>",
                             estilo_header,
                         ),
-
                         "",
-
                         Paragraph(
                             "<b>FUERA DE SERVICIO</b>",
                             estilo_header,
                         ),
-
                         "SI ______  NO ______",
                     ]
                 ],
@@ -6745,9 +5130,7 @@ class InspeccionService:
                     130,
                     170,
                 ],
-                rowHeights=[
-                    35
-                ],
+                rowHeights=[35],
             )
 
             firma.setStyle(
@@ -6760,35 +5143,30 @@ class InspeccionService:
                             0.4,
                             colors.black,
                         ),
-
                         (
                             "BACKGROUND",
                             (0, 0),
                             (0, 0),
                             AZUL_MUY_CLARO,
                         ),
-
                         (
                             "BACKGROUND",
                             (2, 0),
                             (2, 0),
                             AZUL_MUY_CLARO,
                         ),
-
                         (
                             "TEXTCOLOR",
                             (0, 0),
                             (-1, -1),
                             AZUL_OSCURO,
                         ),
-
                         (
                             "VALIGN",
                             (0, 0),
                             (-1, -1),
                             "MIDDLE",
                         ),
-
                         (
                             "ALIGN",
                             (0, 0),
@@ -6799,9 +5177,7 @@ class InspeccionService:
                 )
             )
 
-            elementos.append(
-                firma
-            )
+            elementos.append(firma)
 
             # =====================================================
             # SALTO DE PÁGINA
@@ -6809,28 +5185,21 @@ class InspeccionService:
 
             if numero_semana < len(semanas):
 
-                elementos.append(
-                    PageBreak()
-                )
+                elementos.append(PageBreak())
 
         # =========================================================
         # GENERAR PDF
         # =========================================================
 
-        doc.build(
-            elementos
-        )
+        doc.build(elementos)
 
         buffer.seek(0)
 
         return buffer
- 
+
     @staticmethod
     def obtener_libro_preoperacionales(
-        vehiculo_id=None,
-        anio=None,
-        mes=None,
-        maquinaria_id=None
+        vehiculo_id=None, anio=None, mes=None, maquinaria_id=None
     ):
         """
         Obtiene las inspecciones FINALIZADAS de un mes específico
@@ -6845,97 +5214,52 @@ class InspeccionService:
         # =========================================================
 
         if not anio or not mes:
-            raise ValueError(
-                "El año y el mes son obligatorios."
-            )
+            raise ValueError("El año y el mes son obligatorios.")
 
         # =========================================================
         # CONSULTA BASE
         # =========================================================
 
         consulta = Inspeccion.query.options(
-
             # -----------------------------------------------------
             # USUARIO / OPERADOR
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.usuario
-            ),
-
+            joinedload(Inspeccion.usuario),
             # -----------------------------------------------------
             # VEHÍCULO
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.vehiculo
-            ),
-
+            joinedload(Inspeccion.vehiculo),
             # -----------------------------------------------------
             # MAQUINARIA
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.maquinaria
-            ),
-
+            joinedload(Inspeccion.maquinaria),
             # -----------------------------------------------------
             # ANOMALÍAS
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.anomalias
-            ),
-
+            joinedload(Inspeccion.anomalias),
             # -----------------------------------------------------
             # RESPUESTAS → ÍTEM → CATEGORÍA
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.respuestas
-            )
-            .joinedload(
-                InspeccionRespuesta.item
-            )
-            .joinedload(
-                InspeccionItem.categoria
-            ),
-
+            joinedload(Inspeccion.respuestas)
+            .joinedload(InspeccionRespuesta.item)
+            .joinedload(InspeccionItem.categoria),
             # -----------------------------------------------------
             # RESPUESTAS → FOTOS
             # -----------------------------------------------------
-
-            joinedload(
-                Inspeccion.respuestas
-            )
-            .joinedload(
-                InspeccionRespuesta.fotos
-            ),
-
+            joinedload(Inspeccion.respuestas).joinedload(InspeccionRespuesta.fotos),
         ).filter(
-
             # -----------------------------------------------------
             # MES
             # -----------------------------------------------------
-
-            func.month(
-                Inspeccion.hora_inicio
-            ) == mes,
-
+            func.month(Inspeccion.hora_inicio) == mes,
             # -----------------------------------------------------
             # AÑO
             # -----------------------------------------------------
-
-            func.year(
-                Inspeccion.hora_inicio
-            ) == anio,
-
+            func.year(Inspeccion.hora_inicio) == anio,
             # -----------------------------------------------------
             # SOLO FINALIZADAS
             # -----------------------------------------------------
-
             Inspeccion.estado == "FINALIZADA",
-
         )
 
         # =========================================================
@@ -6944,9 +5268,7 @@ class InspeccionService:
 
         if vehiculo_id:
 
-            consulta = consulta.filter(
-                Inspeccion.vehiculo_id == vehiculo_id
-            )
+            consulta = consulta.filter(Inspeccion.vehiculo_id == vehiculo_id)
 
         # =========================================================
         # FILTRO MAQUINARIA
@@ -6954,18 +5276,14 @@ class InspeccionService:
 
         if maquinaria_id:
 
-            consulta = consulta.filter(
-                Inspeccion.maquinaria_id == maquinaria_id
-            )
+            consulta = consulta.filter(Inspeccion.maquinaria_id == maquinaria_id)
 
         # =========================================================
         # RESULTADO
         # =========================================================
 
-        return consulta.order_by(
-            Inspeccion.hora_inicio.asc()
-        ).all()
-        
+        return consulta.order_by(Inspeccion.hora_inicio.asc()).all()
+
     @staticmethod
     def obtener_libro_preoperacionales_semanal(
         fecha_inicio,
@@ -6977,62 +5295,33 @@ class InspeccionService:
 
         fecha_fin = fecha_inicio + timedelta(days=6)
 
-        inicio_datetime = datetime.combine(
-            fecha_inicio,
-            datetime.min.time()
-        )
+        inicio_datetime = datetime.combine(fecha_inicio, datetime.min.time())
 
-        fin_datetime = datetime.combine(
-            fecha_fin,
-            datetime.max.time()
-        )
+        fin_datetime = datetime.combine(fecha_fin, datetime.max.time())
 
         consulta = Inspeccion.query.options(
-
             joinedload(Inspeccion.usuario),
-
             joinedload(Inspeccion.vehiculo),
-
             joinedload(Inspeccion.maquinaria),
-
             joinedload(Inspeccion.anomalias),
-
-            joinedload(
-                Inspeccion.respuestas
-            )
-            .joinedload(
-                InspeccionRespuesta.item
-            )
-            .joinedload(
-                InspeccionItem.categoria
-            ),
-
+            joinedload(Inspeccion.respuestas)
+            .joinedload(InspeccionRespuesta.item)
+            .joinedload(InspeccionItem.categoria),
         ).filter(
-
             Inspeccion.estado == "FINALIZADA",
-
             Inspeccion.hora_inicio >= inicio_datetime,
-
             Inspeccion.hora_inicio <= fin_datetime,
-
         )
 
         if vehiculo_id:
 
-            consulta = consulta.filter(
-                Inspeccion.vehiculo_id == vehiculo_id
-            )
+            consulta = consulta.filter(Inspeccion.vehiculo_id == vehiculo_id)
 
         if maquinaria_id:
 
-            consulta = consulta.filter(
-                Inspeccion.maquinaria_id == maquinaria_id
-            )
+            consulta = consulta.filter(Inspeccion.maquinaria_id == maquinaria_id)
 
-        return consulta.order_by(
-            Inspeccion.hora_inicio.asc()
-        ).all()
-
+        return consulta.order_by(Inspeccion.hora_inicio.asc()).all()
 
     @staticmethod
     def descargar_libro_preoperacionales_semanal(
@@ -7048,52 +5337,28 @@ class InspeccionService:
         # CONVERTIR FECHA
         # =========================================================
 
-        if isinstance(
-            fecha_referencia,
-            str
-        ):
+        if isinstance(fecha_referencia, str):
 
-            fecha_referencia = datetime.strptime(
-                fecha_referencia,
-                "%Y-%m-%d"
-            ).date()
+            fecha_referencia = datetime.strptime(fecha_referencia, "%Y-%m-%d").date()
 
-        elif isinstance(
-            fecha_referencia,
-            datetime
-        ):
+        elif isinstance(fecha_referencia, datetime):
 
-            fecha_referencia = (
-                fecha_referencia.date()
-            )
+            fecha_referencia = fecha_referencia.date()
 
         # =========================================================
         # CALCULAR SEMANA
         # =========================================================
 
-        inicio_semana = (
-            fecha_referencia
-            - timedelta(
-                days=fecha_referencia.weekday()
-            )
-        )
+        inicio_semana = fecha_referencia - timedelta(days=fecha_referencia.weekday())
 
-        fin_semana = (
-            inicio_semana
-            + timedelta(days=6)
-        )
+        fin_semana = inicio_semana + timedelta(days=6)
 
         # =========================================================
         # OBTENER INSPECCIONES
         # =========================================================
 
-        inspecciones = (
-            InspeccionService
-            .obtener_libro_preoperacionales_semanal(
-                inicio_semana,
-                vehiculo_id=vehiculo_id,
-                maquinaria_id=maquinaria_id
-            )
+        inspecciones = InspeccionService.obtener_libro_preoperacionales_semanal(
+            inicio_semana, vehiculo_id=vehiculo_id, maquinaria_id=maquinaria_id
         )
 
         # =========================================================
@@ -7103,8 +5368,7 @@ class InspeccionService:
         if not inspecciones:
 
             raise Exception(
-                "No existen inspecciones para el activo "
-                "durante esta semana."
+                "No existen inspecciones para el activo " "durante esta semana."
             )
 
         # =========================================================
@@ -7118,19 +5382,14 @@ class InspeccionService:
         # =========================================================
 
         doc = SimpleDocTemplate(
-
             buffer,
-
             pagesize=landscape(A4),
-
             leftMargin=18,
             rightMargin=18,
             topMargin=18,
             bottomMargin=18,
-
             title="Inspección Pre-operacional",
             author="IntelliFeet",
-
         )
 
         estilos = getSampleStyleSheet()
@@ -7139,81 +5398,43 @@ class InspeccionService:
         # COLORES CORPORATIVOS INTELLIFEET
         # =========================================================
 
-        NAVY = colors.HexColor(
-            "#0B1F33"
-        )
+        NAVY = colors.HexColor("#0B1F33")
 
-        NAVY_2 = colors.HexColor(
-            "#132F4C"
-        )
+        NAVY_2 = colors.HexColor("#132F4C")
 
-        NAVY_3 = colors.HexColor(
-            "#1B3A57"
-        )
+        NAVY_3 = colors.HexColor("#1B3A57")
 
-        GOLD = colors.HexColor(
-            "#B58A32"
-        )
+        GOLD = colors.HexColor("#B58A32")
 
-        GOLD_LIGHT = colors.HexColor(
-            "#F3E8C8"
-        )
+        GOLD_LIGHT = colors.HexColor("#F3E8C8")
 
-        GOLD_SOFT = colors.HexColor(
-            "#FBF7ED"
-        )
+        GOLD_SOFT = colors.HexColor("#FBF7ED")
 
-        BLUE_LIGHT = colors.HexColor(
-            "#EAF2F8"
-        )
+        BLUE_LIGHT = colors.HexColor("#EAF2F8")
 
-        BLUE_SOFT = colors.HexColor(
-            "#F4F8FB"
-        )
+        BLUE_SOFT = colors.HexColor("#F4F8FB")
 
-        GRAY_BORDER = colors.HexColor(
-            "#CBD5E1"
-        )
+        GRAY_BORDER = colors.HexColor("#CBD5E1")
 
-        GRAY_LIGHT = colors.HexColor(
-            "#F8FAFC"
-        )
+        GRAY_LIGHT = colors.HexColor("#F8FAFC")
 
-        GRAY_MEDIUM = colors.HexColor(
-            "#E8ECF1"
-        )
+        GRAY_MEDIUM = colors.HexColor("#E8ECF1")
 
-        GRAY_TEXT = colors.HexColor(
-            "#475569"
-        )
+        GRAY_TEXT = colors.HexColor("#475569")
 
-        DARK = colors.HexColor(
-            "#17202A"
-        )
+        DARK = colors.HexColor("#17202A")
 
-        GREEN = colors.HexColor(
-            "#15803D"
-        )
+        GREEN = colors.HexColor("#15803D")
 
-        GREEN_LIGHT = colors.HexColor(
-            "#DCFCE7"
-        )
+        GREEN_LIGHT = colors.HexColor("#DCFCE7")
 
-        RED = colors.HexColor(
-            "#B91C1C"
-        )
+        RED = colors.HexColor("#B91C1C")
 
-        RED_LIGHT = colors.HexColor(
-            "#FEE2E2"
-        )
+        RED_LIGHT = colors.HexColor("#FEE2E2")
 
-        ORANGE = colors.HexColor(
-            "#B45309"
-        )
+        ORANGE = colors.HexColor("#B45309")
 
-        ORANGE_LIGHT = colors.HexColor(
-            "#FEF3C7"
-        )
+        ORANGE_LIGHT = colors.HexColor("#FEF3C7")
 
         WHITE = colors.white
 
@@ -7353,72 +5574,30 @@ class InspeccionService:
         # VEHÍCULO
         # =========================================================
 
-        vehiculo = (
-            inspecciones[0].vehiculo
-            if inspecciones
-            else None
-        )
+        vehiculo = inspecciones[0].vehiculo if inspecciones else None
 
-        nombre_vehiculo = (
-
-            vehiculo.placa
-
-            if vehiculo
-
-            else "SIN VEHÍCULO"
-
-        )
+        nombre_vehiculo = vehiculo.placa if vehiculo else "SIN VEHÍCULO"
 
         # =========================================================
         # MAQUINARIA
         # =========================================================
 
         maquinaria = (
-
-            inspecciones[0].maquinaria
-
-            if inspecciones
-            and es_maquinaria
-
-            else None
-
+            inspecciones[0].maquinaria if inspecciones and es_maquinaria else None
         )
 
         nombre_maquinaria = (
-
-            getattr(
-                maquinaria,
-                "nombre",
-                None
-            )
-
-            or getattr(
-                maquinaria,
-                "codigo",
-                None
-            )
-
-            or getattr(
-                maquinaria,
-                "placa",
-                None
-            )
-
+            getattr(maquinaria, "nombre", None)
+            or getattr(maquinaria, "codigo", None)
+            or getattr(maquinaria, "placa", None)
             or "SIN MAQUINARIA"
-
         )
 
         # =========================================================
         # NOMBRE DEL ACTIVO
         # =========================================================
 
-        nombre_activo = (
-
-            nombre_maquinaria
-            if es_maquinaria
-            else nombre_vehiculo
-
-        )
+        nombre_activo = nombre_maquinaria if es_maquinaria else nombre_vehiculo
 
         # =========================================================
         # LOGO
@@ -7469,40 +5648,23 @@ class InspeccionService:
 
                     if categoria:
 
-                        categoria_nombre = (
-                            categoria.nombre
-                        )
+                        categoria_nombre = categoria.nombre
 
-                        categoria_orden = (
-                            categoria.orden
-                            or 9999
-                        )
+                        categoria_orden = categoria.orden or 9999
 
                     else:
 
-                        categoria_nombre = (
-                            "INSPECCIÓN PRE-OPERACIONAL"
-                        )
+                        categoria_nombre = "INSPECCIÓN PRE-OPERACIONAL"
 
                         categoria_orden = 9999
 
                     items[item_id] = {
-
                         "item": item,
-
                         "categoria": categoria,
-
-                        "categoria_nombre":
-                            categoria_nombre,
-
-                        "categoria_orden":
-                            categoria_orden,
-
-                        "item_orden":
-                            item.orden or 9999,
-
-                        "respuestas": {}
-
+                        "categoria_nombre": categoria_nombre,
+                        "categoria_orden": categoria_orden,
+                        "item_orden": item.orden or 9999,
+                        "respuestas": {},
                     }
 
                 # =================================================
@@ -7512,52 +5674,28 @@ class InspeccionService:
                 if not inspeccion.hora_inicio:
                     continue
 
-                fecha = (
-                    inspeccion
-                    .hora_inicio
-                    .date()
-                )
+                fecha = inspeccion.hora_inicio.date()
 
                 # =================================================
                 # RESPUESTA
                 # =================================================
 
-                items[item_id][
-                    "respuestas"
-                ][fecha] = respuesta.valor
+                items[item_id]["respuestas"][fecha] = respuesta.valor
 
         # =========================================================
         # ORDENAR ÍTEMS
         # =========================================================
 
         items_ordenados = sorted(
-
             items.values(),
-
-            key=lambda x: (
-
-                x["categoria_orden"],
-
-                x["item_orden"],
-
-                x["item"].id
-
-            )
-
+            key=lambda x: (x["categoria_orden"], x["item_orden"], x["item"].id),
         )
 
         # =========================================================
         # DÍAS DE LA SEMANA
         # =========================================================
 
-        dias_semana = [
-
-            inicio_semana
-            + timedelta(days=i)
-
-            for i in range(7)
-
-        ]
+        dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
 
         # =========================================================
         # FECHA ACTUAL
@@ -7569,161 +5707,119 @@ class InspeccionService:
         # INFORMACIÓN DE LA SEMANA
         # =========================================================
 
-        operador = (
-            inspecciones[0].usuario
-            if inspecciones
-            else None
-        )
+        operador = inspecciones[0].usuario if inspecciones else None
 
-        nombre_operador = (
-
-            operador.nombre
-
-            if operador
-
-            else "SIN OPERADOR"
-
-        )
+        nombre_operador = operador.nombre if operador else "SIN OPERADOR"
 
         # =========================================================
         # ENCABEZADO PRINCIPAL
         # =========================================================
 
-        titulo_activo = (
-            "MAQUINARIA"
-            if es_maquinaria
-            else "VEHÍCULO"
-        )
+        titulo_activo = "MAQUINARIA" if es_maquinaria else "VEHÍCULO"
 
         encabezado = Table(
-
-            [[
-
-                img,
-
-                Paragraph(
-
-                    "<font size='11'><b>"
-                    "INSPECCIÓN PRE-OPERACIONAL"
-                    "</b></font><br/>"
-                    f"<font size='9'>"
-                    f"<b>{titulo_activo}: "
-                    f"{nombre_activo}</b>"
-                    f"</font><br/>"
-                    "<font size='6.5'>"
-                    "CONTROL OPERACIONAL Y DE SEGURIDAD"
-                    "</font>",
-
-                    estilo_header,
-
-                ),
-
-                Paragraph(
-
-                    "<font size='8'>"
-                    "<b>HSE-FOR-022</b>"
-                    "</font><br/>"
-                    "<font size='7'>"
-                    "Versión 003"
-                    "</font><br/>"
-                    "<font size='6'>"
-                    "FORMATO CONTROLADO"
-                    "</font>",
-
-                    estilo_header,
-
-                ),
-
-            ]],
-
+            [
+                [
+                    img,
+                    Paragraph(
+                        "<font size='11'><b>"
+                        "INSPECCIÓN PRE-OPERACIONAL"
+                        "</b></font><br/>"
+                        f"<font size='9'>"
+                        f"<b>{titulo_activo}: "
+                        f"{nombre_activo}</b>"
+                        f"</font><br/>"
+                        "<font size='6.5'>"
+                        "CONTROL OPERACIONAL Y DE SEGURIDAD"
+                        "</font>",
+                        estilo_header,
+                    ),
+                    Paragraph(
+                        "<font size='8'>"
+                        "<b>HSE-FOR-022</b>"
+                        "</font><br/>"
+                        "<font size='7'>"
+                        "Versión 003"
+                        "</font><br/>"
+                        "<font size='6'>"
+                        "FORMATO CONTROLADO"
+                        "</font>",
+                        estilo_header,
+                    ),
+                ]
+            ],
             colWidths=[
-
                 150,
                 490,
                 110,
-
             ],
-
             rowHeights=[68],
-
         )
 
         encabezado.setStyle(
-
-            TableStyle([
-
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (0, 0),
-                    NAVY,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (1, 0),
-                    (1, 0),
-                    NAVY,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (2, 0),
-                    (2, 0),
-                    NAVY_2,
-                ),
-
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.8,
-                    NAVY,
-                ),
-
-                (
-                    "INNERGRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.35,
-                    NAVY_3,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "CENTER",
-                ),
-
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    8,
-                ),
-
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    8,
-                ),
-
-            ])
-
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (0, 0),
+                        NAVY,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (1, 0),
+                        (1, 0),
+                        NAVY,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (2, 0),
+                        (2, 0),
+                        NAVY_2,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.8,
+                        NAVY,
+                    ),
+                    (
+                        "INNERGRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.35,
+                        NAVY_3,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "CENTER",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            encabezado
-        )
+        elementos.append(encabezado)
 
         # Línea dorada debajo del encabezado
         linea_dorada = Table(
@@ -7733,219 +5829,137 @@ class InspeccionService:
         )
 
         linea_dorada.setStyle(
-            TableStyle([
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, -1),
-                    GOLD,
-                ),
-            ])
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        GOLD,
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            linea_dorada
-        )
+        elementos.append(linea_dorada)
 
-        elementos.append(
-            Spacer(1, 7)
-        )
+        elementos.append(Spacer(1, 7))
 
         # =========================================================
         # INFORMACIÓN GENERAL
         # =========================================================
 
         estado_semana = (
-
             "SEMANA EN CURSO"
-
             if inicio_semana <= hoy <= fin_semana
-
-            else
-
-            "SEMANA CERRADA"
-
+            else "SEMANA CERRADA"
         )
 
         informacion = Table(
-
             [
-
                 [
-
-                    Paragraph(
-                        "<b>ACTIVO</b>",
-                        estilo_label
-                    ),
-
-                    Paragraph(
-                        str(nombre_activo),
-                        estilo_dato
-                    ),
-
-                    Paragraph(
-                        "<b>CONDUCTOR / OPERADOR</b>",
-                        estilo_label
-                    ),
-
-                    Paragraph(
-                        str(nombre_operador),
-                        estilo_dato
-                    ),
-
+                    Paragraph("<b>ACTIVO</b>", estilo_label),
+                    Paragraph(str(nombre_activo), estilo_dato),
+                    Paragraph("<b>CONDUCTOR / OPERADOR</b>", estilo_label),
+                    Paragraph(str(nombre_operador), estilo_dato),
                 ],
-
                 [
-
-                    Paragraph(
-                        "<b>SEMANA</b>",
-                        estilo_label
-                    ),
-
+                    Paragraph("<b>SEMANA</b>", estilo_label),
                     Paragraph(
                         f"{inicio_semana.strftime('%d/%m/%Y')}"
                         f" - "
                         f"{fin_semana.strftime('%d/%m/%Y')}",
-                        estilo_dato
+                        estilo_dato,
                     ),
-
-                    Paragraph(
-                        "<b>TIPO</b>",
-                        estilo_label
-                    ),
-
-                    Paragraph(
-                        "PRE-OPERACIONAL",
-                        estilo_dato
-                    ),
-
+                    Paragraph("<b>TIPO</b>", estilo_label),
+                    Paragraph("PRE-OPERACIONAL", estilo_dato),
                 ],
-
                 [
-
-                    Paragraph(
-                        "<b>FECHA CONSULTADA</b>",
-                        estilo_label
-                    ),
-
-                    Paragraph(
-                        hoy.strftime('%d/%m/%Y'),
-                        estilo_dato
-                    ),
-
-                    Paragraph(
-                        "<b>ESTADO</b>",
-                        estilo_label
-                    ),
-
-                    Paragraph(
-                        estado_semana,
-                        estilo_dato
-                    ),
-
+                    Paragraph("<b>FECHA CONSULTADA</b>", estilo_label),
+                    Paragraph(hoy.strftime("%d/%m/%Y"), estilo_dato),
+                    Paragraph("<b>ESTADO</b>", estilo_label),
+                    Paragraph(estado_semana, estilo_dato),
                 ],
-
             ],
-
             colWidths=[
-
                 100,
                 275,
                 125,
                 250,
-
             ],
-
             rowHeights=[
-
                 23,
                 23,
                 23,
-
             ],
-
         )
 
         informacion.setStyle(
-
-            TableStyle([
-
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (0, -1),
-                    GOLD_SOFT,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (2, 0),
-                    (2, -1),
-                    GOLD_SOFT,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (1, 0),
-                    (1, -1),
-                    WHITE,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (3, 0),
-                    (3, -1),
-                    WHITE,
-                ),
-
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.55,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "INNERGRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.35,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-
-            ])
-
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (0, -1),
+                        GOLD_SOFT,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (2, 0),
+                        (2, -1),
+                        GOLD_SOFT,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (1, 0),
+                        (1, -1),
+                        WHITE,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (3, 0),
+                        (3, -1),
+                        WHITE,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.55,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "INNERGRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.35,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            informacion
-        )
+        elementos.append(informacion)
 
-        elementos.append(
-            Spacer(1, 7)
-        )
+        elementos.append(Spacer(1, 7))
 
         # =========================================================
         # MATRIZ
@@ -7958,7 +5972,6 @@ class InspeccionService:
         # =========================================================
 
         nombres_dias = [
-
             "LUN",
             "MAR",
             "MIÉ",
@@ -7966,16 +5979,10 @@ class InspeccionService:
             "VIE",
             "SÁB",
             "DOM",
-
         ]
 
         encabezado_dias = [
-
-            Paragraph(
-                "<b>ELEMENTO DE<br/>INSPECCIÓN</b>",
-                estilo_header
-            )
-
+            Paragraph("<b>ELEMENTO DE<br/>INSPECCIÓN</b>", estilo_header)
         ]
 
         for fecha in dias_semana:
@@ -7983,25 +5990,18 @@ class InspeccionService:
             indice = fecha.weekday()
 
             encabezado_dias.append(
-
                 Paragraph(
-
                     f"<font size='8'><b>"
                     f"{nombres_dias[indice]}"
                     f"</b></font><br/>"
                     f"<font size='6.5'>"
                     f"{fecha.strftime('%d/%m')}"
                     f"</font>",
-
-                    estilo_header
-
+                    estilo_header,
                 )
-
             )
 
-        filas.append(
-            encabezado_dias
-        )
+        filas.append(encabezado_dias)
 
         # =========================================================
         # CATEGORÍAS
@@ -8011,52 +6011,18 @@ class InspeccionService:
 
         for info_item in items_ordenados:
 
-            nombre_categoria = (
-                info_item[
-                    "categoria_nombre"
-                ]
-            )
+            nombre_categoria = info_item["categoria_nombre"]
 
-            orden_categoria = (
-                info_item[
-                    "categoria_orden"
-                ]
-            )
+            orden_categoria = info_item["categoria_orden"]
 
             if nombre_categoria not in categorias:
 
-                categorias[
-                    nombre_categoria
-                ] = {
+                categorias[nombre_categoria] = {"orden": orden_categoria, "items": []}
 
-                    "orden":
-                        orden_categoria,
-
-                    "items":
-                        []
-
-                }
-
-            categorias[
-                nombre_categoria
-            ][
-                "items"
-            ].append(
-                info_item
-            )
+            categorias[nombre_categoria]["items"].append(info_item)
 
         categorias_ordenadas = sorted(
-
-            categorias.items(),
-
-            key=lambda x: (
-
-                x[1]["orden"],
-
-                x[0]
-
-            )
-
+            categorias.items(), key=lambda x: (x[1]["orden"], x[0])
         )
 
         filas_componentes = []
@@ -8068,30 +6034,18 @@ class InspeccionService:
         for nombre_categoria, datos_categoria in categorias_ordenadas:
 
             fila_categoria = [
-
                 Paragraph(
-
-                    f"<b>"
-                    f"{str(nombre_categoria).upper()}"
-                    f"</b>",
-
-                    estilo_componente
-
+                    f"<b>" f"{str(nombre_categoria).upper()}" f"</b>", estilo_componente
                 )
-
             ]
 
             for _ in dias_semana:
 
                 fila_categoria.append("")
 
-            filas.append(
-                fila_categoria
-            )
+            filas.append(fila_categoria)
 
-            filas_componentes.append(
-                len(filas) - 1
-            )
+            filas_componentes.append(len(filas) - 1)
 
             # =====================================================
             # ÍTEMS
@@ -8101,30 +6055,13 @@ class InspeccionService:
 
                 item = info_item["item"]
 
-                respuestas = (
-                    info_item["respuestas"]
-                )
+                respuestas = info_item["respuestas"]
 
-                fila = [
-
-                    Paragraph(
-
-                        str(
-                            item.descripcion
-                            or ""
-                        ),
-
-                        estilo_item
-
-                    )
-
-                ]
+                fila = [Paragraph(str(item.descripcion or ""), estilo_item)]
 
                 for fecha in dias_semana:
 
-                    valor = respuestas.get(
-                        fecha
-                    )
+                    valor = respuestas.get(fecha)
 
                     # =============================================
                     # FUTURO
@@ -8134,9 +6071,7 @@ class InspeccionService:
 
                         marca = ""
 
-                        estilo_marca = (
-                            estilo_normal
-                        )
+                        estilo_marca = estilo_normal
 
                     # =============================================
                     # SIN INSPECCIÓN
@@ -8146,9 +6081,7 @@ class InspeccionService:
 
                         marca = ""
 
-                        estilo_marca = (
-                            estilo_normal
-                        )
+                        estilo_marca = estilo_normal
 
                     # =============================================
                     # CON RESPUESTA
@@ -8156,16 +6089,9 @@ class InspeccionService:
 
                     else:
 
-                        valor_normalizado = (
-
-                            str(valor)
-                            .strip()
-                            .upper()
-
-                        )
+                        valor_normalizado = str(valor).strip().upper()
 
                         if valor_normalizado in [
-
                             "SI",
                             "SÍ",
                             "OK",
@@ -8173,67 +6099,43 @@ class InspeccionService:
                             "CUMPLE",
                             "1",
                             "TRUE",
-
                         ]:
 
                             marca = "✓"
 
-                            estilo_marca = (
-                                estilo_estado_ok
-                            )
+                            estilo_marca = estilo_estado_ok
 
                         elif valor_normalizado in [
-
                             "NO",
                             "MALO",
                             "NO CUMPLE",
                             "0",
                             "FALSE",
-
                         ]:
 
                             marca = "X"
 
-                            estilo_marca = (
-                                estilo_estado_no
-                            )
+                            estilo_marca = estilo_estado_no
 
                         elif valor_normalizado in [
-
                             "N/A",
                             "NA",
                             "NO APLICA",
-
                         ]:
 
                             marca = "N/A"
 
-                            estilo_marca = (
-                                estilo_estado_na
-                            )
+                            estilo_marca = estilo_estado_na
 
                         else:
 
-                            marca = str(
-                                valor
-                            )
+                            marca = str(valor)
 
-                            estilo_marca = (
-                                estilo_normal
-                            )
+                            estilo_marca = estilo_normal
 
-                    fila.append(
+                    fila.append(Paragraph(marca, estilo_marca))
 
-                        Paragraph(
-                            marca,
-                            estilo_marca
-                        )
-
-                    )
-
-                filas.append(
-                    fila
-                )
+                filas.append(fila)
 
         # =========================================================
         # GUARDAR ÚLTIMA FILA DE LA MATRIZ
@@ -8251,12 +6153,7 @@ class InspeccionService:
 
         ancho_item = 420
 
-        ancho_dia = (
-
-            ancho_total
-            - ancho_item
-
-        ) / cantidad_dias
+        ancho_dia = (ancho_total - ancho_item) / cantidad_dias
 
         # =========================================================
         # OBTENER INSPECCIONES POR DÍA
@@ -8267,58 +6164,38 @@ class InspeccionService:
         for fecha_dia in dias_semana:
 
             inspecciones_dia = [
-
                 inspeccion
-
                 for inspeccion in inspecciones
-
                 if (
-
                     inspeccion.hora_inicio
-
-                    and
-                    inspeccion.hora_inicio.date()
-                    == fecha_dia
-
+                    and inspeccion.hora_inicio.date() == fecha_dia
                 )
-
             ]
 
-            inspecciones_dia.sort(
-                key=lambda x: x.hora_inicio
-            )
+            inspecciones_dia.sort(key=lambda x: x.hora_inicio)
 
-            inspecciones_por_dia[
-                fecha_dia
-            ] = inspecciones_dia
+            inspecciones_por_dia[fecha_dia] = inspecciones_dia
 
         # =========================================================
         # FILA CONTROL DIARIO
         # =========================================================
 
         fila_control_diario = [
-
             Paragraph(
                 (
-                    "<b>CONTROL DIARIO DE "
-                    "HORÓMETRO</b>"
+                    "<b>CONTROL DIARIO DE " "HORÓMETRO</b>"
                     if es_maquinaria
-                    else
-                    "<b>CONTROL DIARIO DE "
-                    "KILOMETRAJE</b>"
+                    else "<b>CONTROL DIARIO DE " "KILOMETRAJE</b>"
                 ),
-                estilo_componente
+                estilo_componente,
             )
-
         ]
 
         for _ in dias_semana:
 
             fila_control_diario.append("")
 
-        filas.append(
-            fila_control_diario
-        )
+        filas.append(fila_control_diario)
 
         fila_control_diario_index = len(filas) - 1
 
@@ -8327,17 +6204,10 @@ class InspeccionService:
         # =========================================================
 
         fila_inicial = [
-
             Paragraph(
-                (
-                    "<b>HORÓMETRO INICIAL</b>"
-                    if es_maquinaria
-                    else
-                    "<b>KM INICIAL</b>"
-                ),
-                estilo_item
+                ("<b>HORÓMETRO INICIAL</b>" if es_maquinaria else "<b>KM INICIAL</b>"),
+                estilo_item,
             )
-
         ]
 
         # =========================================================
@@ -8345,31 +6215,17 @@ class InspeccionService:
         # =========================================================
 
         fila_final = [
-
             Paragraph(
-                (
-                    "<b>HORÓMETRO FINAL</b>"
-                    if es_maquinaria
-                    else
-                    "<b>KM FINAL</b>"
-                ),
-                estilo_item
+                ("<b>HORÓMETRO FINAL</b>" if es_maquinaria else "<b>KM FINAL</b>"),
+                estilo_item,
             )
-
         ]
 
         # =========================================================
         # FILA FIRMA
         # =========================================================
 
-        fila_firma = [
-
-            Paragraph(
-                "<b>FIRMA DEL OPERADOR</b>",
-                estilo_item
-            )
-
-        ]
+        fila_firma = [Paragraph("<b>FIRMA DEL OPERADOR</b>", estilo_item)]
 
         # =========================================================
         # CONSTRUIR INFORMACIÓN DE LOS 7 DÍAS
@@ -8377,12 +6233,7 @@ class InspeccionService:
 
         for fecha_dia in dias_semana:
 
-            inspecciones_dia = (
-                inspecciones_por_dia.get(
-                    fecha_dia,
-                    []
-                )
-            )
+            inspecciones_dia = inspecciones_por_dia.get(fecha_dia, [])
 
             # =====================================================
             # SIN INSPECCIÓN
@@ -8390,32 +6241,11 @@ class InspeccionService:
 
             if not inspecciones_dia:
 
-                fila_inicial.append(
+                fila_inicial.append(Paragraph("—", estilo_normal))
 
-                    Paragraph(
-                        "—",
-                        estilo_normal
-                    )
+                fila_final.append(Paragraph("—", estilo_normal))
 
-                )
-
-                fila_final.append(
-
-                    Paragraph(
-                        "—",
-                        estilo_normal
-                    )
-
-                )
-
-                fila_firma.append(
-
-                    Paragraph(
-                        "SIN REGISTRO",
-                        estilo_normal
-                    )
-
-                )
+                fila_firma.append(Paragraph("SIN REGISTRO", estilo_normal))
 
                 continue
 
@@ -8436,13 +6266,9 @@ class InspeccionService:
             # =====================================================
 
             contador_inicial = (
-
                 primera.contador_inicial
-
                 if primera.contador_inicial is not None
-
                 else None
-
             )
 
             # =====================================================
@@ -8450,13 +6276,7 @@ class InspeccionService:
             # =====================================================
 
             contador_final = (
-
-                ultima.contador_final
-
-                if ultima.contador_final is not None
-
-                else None
-
+                ultima.contador_final if ultima.contador_final is not None else None
             )
 
             # =====================================================
@@ -8467,21 +6287,13 @@ class InspeccionService:
 
                 try:
 
-                    contador_inicial = (
-
-                        f"{float(contador_inicial):,.0f}"
-                        .replace(",", ".")
-
+                    contador_inicial = f"{float(contador_inicial):,.0f}".replace(
+                        ",", "."
                     )
 
-                except (
-                    ValueError,
-                    TypeError
-                ):
+                except (ValueError, TypeError):
 
-                    contador_inicial = str(
-                        contador_inicial
-                    )
+                    contador_inicial = str(contador_inicial)
 
             else:
 
@@ -8495,21 +6307,11 @@ class InspeccionService:
 
                 try:
 
-                    contador_final = (
+                    contador_final = f"{float(contador_final):,.0f}".replace(",", ".")
 
-                        f"{float(contador_final):,.0f}"
-                        .replace(",", ".")
+                except (ValueError, TypeError):
 
-                    )
-
-                except (
-                    ValueError,
-                    TypeError
-                ):
-
-                    contador_final = str(
-                        contador_final
-                    )
+                    contador_final = str(contador_final)
 
             else:
 
@@ -8522,23 +6324,13 @@ class InspeccionService:
             if es_maquinaria:
 
                 fila_inicial.append(
-
-                    Paragraph(
-                        f"<b>{contador_inicial} h</b>",
-                        estilo_dato_centro
-                    )
-
+                    Paragraph(f"<b>{contador_inicial} h</b>", estilo_dato_centro)
                 )
 
             else:
 
                 fila_inicial.append(
-
-                    Paragraph(
-                        f"<b>{contador_inicial}</b>",
-                        estilo_dato_centro
-                    )
-
+                    Paragraph(f"<b>{contador_inicial}</b>", estilo_dato_centro)
                 )
 
             # =====================================================
@@ -8548,23 +6340,13 @@ class InspeccionService:
             if es_maquinaria:
 
                 fila_final.append(
-
-                    Paragraph(
-                        f"<b>{contador_final} h</b>",
-                        estilo_dato_centro
-                    )
-
+                    Paragraph(f"<b>{contador_final} h</b>", estilo_dato_centro)
                 )
 
             else:
 
                 fila_final.append(
-
-                    Paragraph(
-                        f"<b>{contador_final}</b>",
-                        estilo_dato_centro
-                    )
-
+                    Paragraph(f"<b>{contador_final}</b>", estilo_dato_centro)
                 )
 
             # =====================================================
@@ -8580,43 +6362,24 @@ class InspeccionService:
                 try:
 
                     ruta_firma_normalizada = (
-
-                        str(ruta_firma)
-                        .replace("\\", os.sep)
-                        .replace("/", os.sep)
-
+                        str(ruta_firma).replace("\\", os.sep).replace("/", os.sep)
                     )
 
                     # ---------------------------------------------
                     # RUTA ABSOLUTA
                     # ---------------------------------------------
 
-                    if os.path.isabs(
-                        ruta_firma_normalizada
-                    ):
+                    if os.path.isabs(ruta_firma_normalizada):
 
-                        posibles_rutas = [
-
-                            ruta_firma_normalizada
-
-                        ]
+                        posibles_rutas = [ruta_firma_normalizada]
 
                     else:
 
-                        ruta_relativa = (
-                            ruta_firma_normalizada
-                            .lstrip("/\\")
-                        )
+                        ruta_relativa = ruta_firma_normalizada.lstrip("/\\")
 
                         posibles_rutas = [
-
                             ruta_relativa,
-
-                            os.path.join(
-                                current_app.root_path,
-                                ruta_relativa
-                            ),
-
+                            os.path.join(current_app.root_path, ruta_relativa),
                         ]
 
                     # ---------------------------------------------
@@ -8627,13 +6390,9 @@ class InspeccionService:
 
                     for ruta_posible in posibles_rutas:
 
-                        if os.path.exists(
-                            ruta_posible
-                        ):
+                        if os.path.exists(ruta_posible):
 
-                            ruta_real_firma = (
-                                ruta_posible
-                            )
+                            ruta_real_firma = ruta_posible
 
                             break
 
@@ -8643,27 +6402,16 @@ class InspeccionService:
 
                     if ruta_real_firma:
 
-                        imagen_firma = RLImage(
+                        imagen_firma = RLImage(ruta_real_firma, width=52, height=25)
 
-                            ruta_real_firma,
-
-                            width=52,
-                            height=25
-
-                        )
-
-                        imagen_firma.hAlign = (
-                            "CENTER"
-                        )
+                        imagen_firma.hAlign = "CENTER"
 
                 except Exception as e:
 
                     current_app.logger.warning(
-
                         "No se pudo cargar la firma "
                         f"de la inspección "
                         f"{ultima.id}: {str(e)}"
-
                     )
 
             # =====================================================
@@ -8672,40 +6420,25 @@ class InspeccionService:
 
             if imagen_firma:
 
-                fila_firma.append(
-                    imagen_firma
-                )
+                fila_firma.append(imagen_firma)
 
             else:
 
-                fila_firma.append(
-
-                    Paragraph(
-                        "SIN FIRMA",
-                        estilo_normal
-                    )
-
-                )
+                fila_firma.append(Paragraph("SIN FIRMA", estilo_normal))
 
         # =========================================================
         # AGREGAR FILAS DIARIAS
         # =========================================================
 
-        filas.append(
-            fila_inicial
-        )
+        filas.append(fila_inicial)
 
         fila_inicial_index = len(filas) - 1
 
-        filas.append(
-            fila_final
-        )
+        filas.append(fila_final)
 
         fila_final_index = len(filas) - 1
 
-        filas.append(
-            fila_firma
-        )
+        filas.append(fila_firma)
 
         fila_firma_index = len(filas) - 1
 
@@ -8714,22 +6447,9 @@ class InspeccionService:
         # =========================================================
 
         tabla = Table(
-
             filas,
-
-            colWidths=[
-
-                ancho_item
-
-            ]
-            +
-            [
-                ancho_dia
-                for _ in dias_semana
-            ],
-
+            colWidths=[ancho_item] + [ancho_dia for _ in dias_semana],
             repeatRows=1,
-
         )
 
         # =========================================================
@@ -8737,7 +6457,6 @@ class InspeccionService:
         # =========================================================
 
         estilos_tabla = [
-
             (
                 "GRID",
                 (0, 0),
@@ -8745,63 +6464,54 @@ class InspeccionService:
                 0.35,
                 GRAY_BORDER,
             ),
-
             (
                 "BACKGROUND",
                 (0, 0),
                 (-1, 0),
                 NAVY,
             ),
-
             (
                 "TEXTCOLOR",
                 (0, 0),
                 (-1, 0),
                 WHITE,
             ),
-
             (
                 "VALIGN",
                 (0, 0),
                 (-1, -1),
                 "MIDDLE",
             ),
-
             (
                 "ALIGN",
                 (1, 0),
                 (-1, -1),
                 "CENTER",
             ),
-
             (
                 "LEFTPADDING",
                 (0, 0),
                 (-1, -1),
                 4,
             ),
-
             (
                 "RIGHTPADDING",
                 (0, 0),
                 (-1, -1),
                 4,
             ),
-
             (
                 "TOPPADDING",
                 (0, 0),
                 (-1, -1),
                 3,
             ),
-
             (
                 "BOTTOMPADDING",
                 (0, 0),
                 (-1, -1),
                 3,
             ),
-
         ]
 
         # =========================================================
@@ -8810,73 +6520,63 @@ class InspeccionService:
 
         for fila_categoria in filas_componentes:
 
-            estilos_tabla.extend([
-
-                (
-                    "SPAN",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                ),
-
-                (
-                    "BACKGROUND",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    GOLD_LIGHT,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    NAVY,
-                ),
-
-                (
-                    "FONTNAME",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    "Helvetica-Bold",
-                ),
-
-                (
-                    "ALIGN",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    "LEFT",
-                ),
-
-                (
-                    "LEFTPADDING",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    7,
-                ),
-
-                (
-                    "TOPPADDING",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    4,
-                ),
-
-                (
-                    "BOTTOMPADDING",
-                    (0, fila_categoria),
-                    (-1, fila_categoria),
-                    4,
-                ),
-
-            ])
+            estilos_tabla.extend(
+                [
+                    (
+                        "SPAN",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        GOLD_LIGHT,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        NAVY,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        "LEFT",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        7,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        4,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, fila_categoria),
+                        (-1, fila_categoria),
+                        4,
+                    ),
+                ]
+            )
 
         # =========================================================
         # FILAS ALTERNADAS
         # =========================================================
 
-        for indice_fila in range(
-            1,
-            fila_final_matriz + 1
-        ):
+        for indice_fila in range(1, fila_final_matriz + 1):
 
             if indice_fila in filas_componentes:
                 continue
@@ -8884,191 +6584,160 @@ class InspeccionService:
             if indice_fila % 2 == 0:
 
                 estilos_tabla.append(
-
                     (
                         "BACKGROUND",
                         (0, indice_fila),
                         (-1, indice_fila),
                         GRAY_LIGHT,
                     )
-
                 )
 
         # =========================================================
         # DÍAS FUTUROS
         # =========================================================
 
-        for indice_dia, fecha in enumerate(
-            dias_semana,
-            start=1
-        ):
+        for indice_dia, fecha in enumerate(dias_semana, start=1):
 
             if fecha > hoy:
 
                 estilos_tabla.append(
-
                     (
                         "BACKGROUND",
                         (indice_dia, 1),
-                        (
-                            indice_dia,
-                            fila_final_matriz
-                        ),
+                        (indice_dia, fila_final_matriz),
                         GRAY_MEDIUM,
                     )
-
                 )
 
         # =========================================================
         # FILA CONTROL DIARIO
         # =========================================================
 
-        estilos_tabla.extend([
-
-            (
-                "SPAN",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-            ),
-
-            (
-                "BACKGROUND",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-                NAVY_2,
-            ),
-
-            (
-                "TEXTCOLOR",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-                WHITE,
-            ),
-
-            (
-                "ALIGN",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-                "CENTER",
-            ),
-
-            (
-                "TOPPADDING",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-                5,
-            ),
-
-            (
-                "BOTTOMPADDING",
-                (0, fila_control_diario_index),
-                (-1, fila_control_diario_index),
-                5,
-            ),
-
-        ])
+        estilos_tabla.extend(
+            [
+                (
+                    "SPAN",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                ),
+                (
+                    "BACKGROUND",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                    NAVY_2,
+                ),
+                (
+                    "TEXTCOLOR",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                    WHITE,
+                ),
+                (
+                    "ALIGN",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                    "CENTER",
+                ),
+                (
+                    "TOPPADDING",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                    5,
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, fila_control_diario_index),
+                    (-1, fila_control_diario_index),
+                    5,
+                ),
+            ]
+        )
 
         # =========================================================
         # FILAS DIARIAS
         # =========================================================
 
         for fila_diaria in [
-
             fila_inicial_index,
             fila_final_index,
             fila_firma_index,
-
         ]:
 
-            estilos_tabla.extend([
-
-                (
-                    "BACKGROUND",
-                    (0, fila_diaria),
-                    (0, fila_diaria),
-                    GOLD_SOFT,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (0, fila_diaria),
-                    (0, fila_diaria),
-                    NAVY,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, fila_diaria),
-                    (-1, fila_diaria),
-                    "MIDDLE",
-                ),
-
-                (
-                    "ALIGN",
-                    (1, fila_diaria),
-                    (-1, fila_diaria),
-                    "CENTER",
-                ),
-
-                (
-                    "TOPPADDING",
-                    (0, fila_diaria),
-                    (-1, fila_diaria),
-                    4,
-                ),
-
-                (
-                    "BOTTOMPADDING",
-                    (0, fila_diaria),
-                    (-1, fila_diaria),
-                    4,
-                ),
-
-            ])
+            estilos_tabla.extend(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, fila_diaria),
+                        (0, fila_diaria),
+                        GOLD_SOFT,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, fila_diaria),
+                        (0, fila_diaria),
+                        NAVY,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, fila_diaria),
+                        (-1, fila_diaria),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (1, fila_diaria),
+                        (-1, fila_diaria),
+                        "CENTER",
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, fila_diaria),
+                        (-1, fila_diaria),
+                        4,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, fila_diaria),
+                        (-1, fila_diaria),
+                        4,
+                    ),
+                ]
+            )
 
         # =========================================================
         # ALTURA FIRMA
         # =========================================================
 
-        estilos_tabla.extend([
-
-            (
-                "TOPPADDING",
-                (1, fila_firma_index),
-                (-1, fila_firma_index),
-                5,
-            ),
-
-            (
-                "BOTTOMPADDING",
-                (1, fila_firma_index),
-                (-1, fila_firma_index),
-                5,
-            ),
-
-        ])
+        estilos_tabla.extend(
+            [
+                (
+                    "TOPPADDING",
+                    (1, fila_firma_index),
+                    (-1, fila_firma_index),
+                    5,
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (1, fila_firma_index),
+                    (-1, fila_firma_index),
+                    5,
+                ),
+            ]
+        )
 
         # =========================================================
         # APLICAR ESTILOS
         # =========================================================
 
-        tabla.setStyle(
-            TableStyle(
-                estilos_tabla
-            )
-        )
+        tabla.setStyle(TableStyle(estilos_tabla))
 
         # =========================================================
         # AGREGAR MATRIZ
         # =========================================================
 
-        elementos.append(
-            tabla
-        )
+        elementos.append(tabla)
 
-        elementos.append(
-            Spacer(1, 9)
-        )
+        elementos.append(Spacer(1, 9))
 
         # =========================================================
         # OBSERVACIONES
@@ -9081,394 +6750,279 @@ class InspeccionService:
             if inspeccion.observaciones_generales:
 
                 fecha_observacion = (
-
-                    inspeccion.hora_inicio.strftime(
-                        "%d/%m"
-                    )
-
+                    inspeccion.hora_inicio.strftime("%d/%m")
                     if inspeccion.hora_inicio
-
                     else ""
-
                 )
 
                 observaciones_texto.append(
-
                     f"<b>{fecha_observacion}</b> - "
                     f"{inspeccion.observaciones_generales}"
-
                 )
 
         texto_observaciones = (
-
-            "<br/>".join(
-                observaciones_texto
-            )
-
+            "<br/>".join(observaciones_texto)
             if observaciones_texto
-
-            else
-            "Sin observaciones registradas."
-
+            else "Sin observaciones registradas."
         )
 
         observaciones = Table(
-
             [
-
-                [
-
-                    Paragraph(
-                        "<b>OBSERVACIONES GENERALES</b>",
-                        estilo_header
-                    )
-
-                ],
-
-                [
-
-                    Paragraph(
-                        texto_observaciones,
-                        estilo_item
-                    )
-
-                ],
-
+                [Paragraph("<b>OBSERVACIONES GENERALES</b>", estilo_header)],
+                [Paragraph(texto_observaciones, estilo_item)],
             ],
-
-            colWidths=[
-                ancho_total
-            ],
-
+            colWidths=[ancho_total],
             rowHeights=[
                 21,
                 45,
             ],
-
         )
 
         observaciones.setStyle(
-
-            TableStyle([
-
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, 0),
-                    NAVY_2,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (0, 0),
-                    (-1, 0),
-                    WHITE,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (0, 1),
-                    (-1, 1),
-                    WHITE,
-                ),
-
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.55,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "LINEBELOW",
-                    (0, 0),
-                    (-1, 0),
-                    0.35,
-                    GOLD,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-
-            ])
-
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        NAVY_2,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        WHITE,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, 1),
+                        WHITE,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.55,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (-1, 0),
+                        0.35,
+                        GOLD,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            observaciones
-        )
+        elementos.append(observaciones)
 
-        elementos.append(
-            Spacer(1, 7)
-        )
+        elementos.append(Spacer(1, 7))
 
         # =========================================================
         # FUERA DE SERVICIO
         # =========================================================
 
         fuera_servicio = Table(
-
-            [[
-
-                Paragraph(
-                    "<b>FUERA DE SERVICIO</b>",
-                    estilo_header
-                ),
-
-                Paragraph(
-                    "<b>SI</b> &nbsp;&nbsp; ________",
-                    estilo_normal
-                ),
-
-                Paragraph(
-                    "<b>NO</b> &nbsp;&nbsp; ________",
-                    estilo_normal
-                ),
-
-            ]],
-
+            [
+                [
+                    Paragraph("<b>FUERA DE SERVICIO</b>", estilo_header),
+                    Paragraph("<b>SI</b> &nbsp;&nbsp; ________", estilo_normal),
+                    Paragraph("<b>NO</b> &nbsp;&nbsp; ________", estilo_normal),
+                ]
+            ],
             colWidths=[
-
                 250,
                 250,
                 250,
-
             ],
-
-            rowHeights=[
-                34
-            ],
-
+            rowHeights=[34],
         )
 
         fuera_servicio.setStyle(
-
-            TableStyle([
-
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (0, 0),
-                    NAVY_2,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (1, 0),
-                    (1, 0),
-                    WHITE,
-                ),
-
-                (
-                    "BACKGROUND",
-                    (2, 0),
-                    (2, 0),
-                    WHITE,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (0, 0),
-                    (0, 0),
-                    WHITE,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (1, 0),
-                    (-1, -1),
-                    NAVY,
-                ),
-
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.55,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "INNERGRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.35,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "LINEBELOW",
-                    (0, 0),
-                    (-1, 0),
-                    1,
-                    GOLD,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "CENTER",
-                ),
-
-            ])
-
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (0, 0),
+                        NAVY_2,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (1, 0),
+                        (1, 0),
+                        WHITE,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (2, 0),
+                        (2, 0),
+                        WHITE,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (0, 0),
+                        WHITE,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (1, 0),
+                        (-1, -1),
+                        NAVY,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.55,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "INNERGRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.35,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (-1, 0),
+                        1,
+                        GOLD,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "CENTER",
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            fuera_servicio
-        )
+        elementos.append(fuera_servicio)
 
         # =========================================================
         # PIE DE DOCUMENTO
         # =========================================================
 
-        elementos.append(
-            Spacer(1, 7)
-        )
+        elementos.append(Spacer(1, 7))
 
         pie = Table(
-
-            [[
-
-                Paragraph(
-                    "<b>IntelliFeet</b> · "
-                    "Gestión inteligente de flota",
-                    estilo_normal
-                ),
-
-                Paragraph(
-                    f"Semana "
-                    f"{inicio_semana.strftime('%d/%m/%Y')} "
-                    f"— "
-                    f"{fin_semana.strftime('%d/%m/%Y')}",
-                    estilo_normal
-                ),
-
-                Paragraph(
-                    "Documento de control operacional",
-                    estilo_normal
-                ),
-
-            ]],
-
+            [
+                [
+                    Paragraph(
+                        "<b>IntelliFeet</b> · " "Gestión inteligente de flota",
+                        estilo_normal,
+                    ),
+                    Paragraph(
+                        f"Semana "
+                        f"{inicio_semana.strftime('%d/%m/%Y')} "
+                        f"— "
+                        f"{fin_semana.strftime('%d/%m/%Y')}",
+                        estilo_normal,
+                    ),
+                    Paragraph("Documento de control operacional", estilo_normal),
+                ]
+            ],
             colWidths=[
-
                 250,
                 250,
                 250,
-
             ],
-
-            rowHeights=[
-                20
-            ],
-
+            rowHeights=[20],
         )
 
         pie.setStyle(
-
-            TableStyle([
-
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, -1),
-                    GRAY_LIGHT,
-                ),
-
-                (
-                    "TEXTCOLOR",
-                    (0, 0),
-                    (-1, -1),
-                    GRAY_TEXT,
-                ),
-
-                (
-                    "BOX",
-                    (0, 0),
-                    (-1, -1),
-                    0.35,
-                    GRAY_BORDER,
-                ),
-
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "CENTER",
-                ),
-
-            ])
-
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        GRAY_LIGHT,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, -1),
+                        GRAY_TEXT,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.35,
+                        GRAY_BORDER,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "CENTER",
+                    ),
+                ]
+            )
         )
 
-        elementos.append(
-            pie
-        )
+        elementos.append(pie)
 
         # =========================================================
         # GENERAR PDF
         # =========================================================
 
-        doc.build(
-            elementos
-        )
+        doc.build(elementos)
 
         buffer.seek(0)
 
         return buffer
 
- 
     @staticmethod
     def descargar_excel_preoperacionales(
         mes, anio, vehiculo_id=None, maquinaria_id=None
     ):
 
         inspecciones = InspeccionService.obtener_reporte_preoperacionales(
-            mes,
-            anio,
-            vehiculo_id,
-            maquinaria_id
+            mes, anio, vehiculo_id, maquinaria_id
         )
 
         if not inspecciones:
-            raise Exception(
-                "No existen inspecciones para el periodo especificado."
-            )
+            raise Exception("No existen inspecciones para el periodo especificado.")
 
         # =========================================================
         # IMPORTACIONES
@@ -9478,13 +7032,7 @@ class InspeccionService:
         import os
 
         from openpyxl import Workbook
-        from openpyxl.styles import (
-            Font,
-            PatternFill,
-            Border,
-            Side,
-            Alignment
-        )
+        from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
         from openpyxl.drawing.image import Image
         from openpyxl.utils import get_column_letter
 
@@ -9529,164 +7077,67 @@ class InspeccionService:
         # FILLS
         # =========================================================
 
-        fill_azul_oscuro = PatternFill(
-            "solid",
-            fgColor=AZUL_OSCURO
-        )
+        fill_azul_oscuro = PatternFill("solid", fgColor=AZUL_OSCURO)
 
-        fill_azul = PatternFill(
-            "solid",
-            fgColor=AZUL
-        )
+        fill_azul = PatternFill("solid", fgColor=AZUL)
 
-        fill_azul_medio = PatternFill(
-            "solid",
-            fgColor=AZUL_MEDIO
-        )
+        fill_azul_medio = PatternFill("solid", fgColor=AZUL_MEDIO)
 
-        fill_azul_claro = PatternFill(
-            "solid",
-            fgColor=AZUL_CLARO
-        )
+        fill_azul_claro = PatternFill("solid", fgColor=AZUL_CLARO)
 
-        fill_azul_header = PatternFill(
-            "solid",
-            fgColor=AZUL_HEADER
-        )
+        fill_azul_header = PatternFill("solid", fgColor=AZUL_HEADER)
 
-        fill_gris = PatternFill(
-            "solid",
-            fgColor=GRIS_CLARO
-        )
+        fill_gris = PatternFill("solid", fgColor=GRIS_CLARO)
 
-        fill_blanco = PatternFill(
-            "solid",
-            fgColor=BLANCO
-        )
+        fill_blanco = PatternFill("solid", fgColor=BLANCO)
 
-        fill_verde = PatternFill(
-            "solid",
-            fgColor=VERDE_CLARO
-        )
+        fill_verde = PatternFill("solid", fgColor=VERDE_CLARO)
 
-        fill_rojo = PatternFill(
-            "solid",
-            fgColor=ROJO_CLARO
-        )
+        fill_rojo = PatternFill("solid", fgColor=ROJO_CLARO)
 
-        fill_naranja = PatternFill(
-            "solid",
-            fgColor=NARANJA_CLARO
-        )
+        fill_naranja = PatternFill("solid", fgColor=NARANJA_CLARO)
 
         # =========================================================
         # BORDES
         # =========================================================
 
-        thin = Side(
-            border_style="thin",
-            color=GRIS_BORDE
-        )
+        thin = Side(border_style="thin", color=GRIS_BORDE)
 
-        medium = Side(
-            border_style="medium",
-            color=AZUL
-        )
+        medium = Side(border_style="medium", color=AZUL)
 
-        border = Border(
-            left=thin,
-            right=thin,
-            top=thin,
-            bottom=thin
-        )
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        border_seccion = Border(
-            left=medium,
-            right=medium,
-            top=medium,
-            bottom=medium
-        )
+        border_seccion = Border(left=medium, right=medium, top=medium, bottom=medium)
 
         # =========================================================
         # ALINEACIONES
         # =========================================================
 
-        center = Alignment(
-            horizontal="center",
-            vertical="center",
-            wrap_text=True
-        )
+        center = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        left = Alignment(
-            horizontal="left",
-            vertical="center",
-            wrap_text=True
-        )
+        left = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
         # =========================================================
         # FUENTES
         # =========================================================
 
-        font_titulo = Font(
-            name="Calibri",
-            bold=True,
-            color=BLANCO,
-            size=16
-        )
+        font_titulo = Font(name="Calibri", bold=True, color=BLANCO, size=16)
 
-        font_subtitulo = Font(
-            name="Calibri",
-            bold=True,
-            color=BLANCO,
-            size=11
-        )
+        font_subtitulo = Font(name="Calibri", bold=True, color=BLANCO, size=11)
 
-        font_seccion = Font(
-            name="Calibri",
-            bold=True,
-            color=BLANCO,
-            size=11
-        )
+        font_seccion = Font(name="Calibri", bold=True, color=BLANCO, size=11)
 
-        font_label = Font(
-            name="Calibri",
-            bold=True,
-            color=GRIS_OSCURO,
-            size=10
-        )
+        font_label = Font(name="Calibri", bold=True, color=GRIS_OSCURO, size=10)
 
-        font_normal = Font(
-            name="Calibri",
-            color=GRIS_OSCURO,
-            size=10
-        )
+        font_normal = Font(name="Calibri", color=GRIS_OSCURO, size=10)
 
-        font_pequena = Font(
-            name="Calibri",
-            color=GRIS_MEDIO,
-            size=9
-        )
+        font_pequena = Font(name="Calibri", color=GRIS_MEDIO, size=9)
 
-        font_header = Font(
-            name="Calibri",
-            bold=True,
-            color=BLANCO,
-            size=10
-        )
+        font_header = Font(name="Calibri", bold=True, color=BLANCO, size=10)
 
-        font_indicador = Font(
-            name="Calibri",
-            bold=True,
-            color=AZUL_OSCURO,
-            size=13
-        )
+        font_indicador = Font(name="Calibri", bold=True, color=AZUL_OSCURO, size=13)
 
-        font_indicador_label = Font(
-            name="Calibri",
-            bold=True,
-            color=GRIS_MEDIO,
-            size=9
-        )
+        font_indicador_label = Font(name="Calibri", bold=True, color=GRIS_MEDIO, size=9)
 
         # =========================================================
         # HELPERS
@@ -9705,25 +7156,13 @@ class InspeccionService:
                 for celda in fila:
                     celda.border = border
 
-        def aplicar_encabezado(
-            hoja,
-            fila,
-            columnas,
-            titulo,
-            fill=fill_azul_medio
-        ):
+        def aplicar_encabezado(hoja, fila, columnas, titulo, fill=fill_azul_medio):
 
             hoja.merge_cells(
-                start_row=fila,
-                start_column=1,
-                end_row=fila,
-                end_column=columnas
+                start_row=fila, start_column=1, end_row=fila, end_column=columnas
             )
 
-            celda = hoja.cell(
-                fila,
-                1
-            )
+            celda = hoja.cell(fila, 1)
 
             celda.value = titulo
             celda.fill = fill
@@ -9732,55 +7171,26 @@ class InspeccionService:
             celda.border = border_seccion
 
             for col in range(1, columnas + 1):
-                hoja.cell(
-                    fila,
-                    col
-                ).border = border_seccion
+                hoja.cell(fila, col).border = border_seccion
 
         def aplicar_estado(celda, estado):
 
-            estado = texto_seguro(
-                estado
-            ).upper()
+            estado = texto_seguro(estado).upper()
 
-            if estado in (
-                "FINALIZADA",
-                "REVISADA",
-                "APROBADO",
-                "APROBADA"
-            ):
+            if estado in ("FINALIZADA", "REVISADA", "APROBADO", "APROBADA"):
 
                 celda.fill = fill_verde
-                celda.font = Font(
-                    bold=True,
-                    color=VERDE,
-                    size=9
-                )
+                celda.font = Font(bold=True, color=VERDE, size=9)
 
-            elif estado in (
-                "PENDIENTE_CIERRE",
-                "EN_PROCESO"
-            ):
+            elif estado in ("PENDIENTE_CIERRE", "EN_PROCESO"):
 
                 celda.fill = fill_naranja
-                celda.font = Font(
-                    bold=True,
-                    color=NARANJA,
-                    size=9
-                )
+                celda.font = Font(bold=True, color=NARANJA, size=9)
 
-            elif estado in (
-                "ANULADA",
-                "RECHAZADO",
-                "RECHAZADA"
-            ):
+            elif estado in ("ANULADA", "RECHAZADO", "RECHAZADA"):
 
                 celda.fill = fill_rojo
-                celda.font = Font(
-                    bold=True,
-                    color=ROJO,
-                    size=9
-                )
+                celda.font = Font(bold=True, color=ROJO, size=9)
 
             else:
 
@@ -9789,56 +7199,22 @@ class InspeccionService:
 
         def aplicar_respuesta(celda, valor):
 
-            valor_normalizado = (
-                texto_seguro(valor)
-                .upper()
-                .strip()
-            )
+            valor_normalizado = texto_seguro(valor).upper().strip()
 
-            if valor_normalizado in [
-                "SI",
-                "SÍ",
-                "OK",
-                "CUMPLE",
-                "BUENO",
-                "TRUE",
-                "1"
-            ]:
+            if valor_normalizado in ["SI", "SÍ", "OK", "CUMPLE", "BUENO", "TRUE", "1"]:
 
                 celda.fill = fill_verde
-                celda.font = Font(
-                    bold=True,
-                    color=VERDE,
-                    size=10
-                )
+                celda.font = Font(bold=True, color=VERDE, size=10)
 
-            elif valor_normalizado in [
-                "NO",
-                "NO CUMPLE",
-                "MALO",
-                "FALSE",
-                "0"
-            ]:
+            elif valor_normalizado in ["NO", "NO CUMPLE", "MALO", "FALSE", "0"]:
 
                 celda.fill = fill_rojo
-                celda.font = Font(
-                    bold=True,
-                    color=ROJO,
-                    size=10
-                )
+                celda.font = Font(bold=True, color=ROJO, size=10)
 
-            elif valor_normalizado in [
-                "N/A",
-                "NA",
-                "NO APLICA"
-            ]:
+            elif valor_normalizado in ["N/A", "NA", "NO APLICA"]:
 
                 celda.fill = fill_naranja
-                celda.font = Font(
-                    bold=True,
-                    color=NARANJA,
-                    size=10
-                )
+                celda.font = Font(bold=True, color=NARANJA, size=10)
 
         # =========================================================
         # CONFIGURACIÓN HOJA PRINCIPAL
@@ -9886,10 +7262,7 @@ class InspeccionService:
                 logo.width = 235
                 logo.height = 115
 
-                ws.add_image(
-                    logo,
-                    "A1"
-                )
+                ws.add_image(logo, "A1")
 
             except Exception:
                 pass
@@ -9900,10 +7273,7 @@ class InspeccionService:
 
         ws.merge_cells("C1:G2")
 
-        ws["C1"] = (
-            "INTELLIFEET\n"
-            "GESTIÓN DE SEGURIDAD OPERACIONAL"
-        )
+        ws["C1"] = "INTELLIFEET\n" "GESTIÓN DE SEGURIDAD OPERACIONAL"
 
         ws["C1"].fill = fill_azul_oscuro
         ws["C1"].font = font_titulo
@@ -9912,10 +7282,7 @@ class InspeccionService:
 
         for fila in range(1, 3):
             for col in range(3, 8):
-                ws.cell(
-                    fila,
-                    col
-                ).fill = fill_azul_oscuro
+                ws.cell(fila, col).fill = fill_azul_oscuro
 
         # =========================================================
         # NOMBRE DEL REPORTE
@@ -9923,16 +7290,10 @@ class InspeccionService:
 
         ws.merge_cells("C3:G4")
 
-        ws["C3"] = (
-            "REPORTE DE INSPECCIONES PREOPERACIONALES"
-        )
+        ws["C3"] = "REPORTE DE INSPECCIONES PREOPERACIONALES"
 
         ws["C3"].fill = fill_azul_claro
-        ws["C3"].font = Font(
-            bold=True,
-            color=AZUL_OSCURO,
-            size=12
-        )
+        ws["C3"].font = Font(bold=True, color=AZUL_OSCURO, size=12)
         ws["C3"].alignment = center
         ws["C3"].border = border_seccion
 
@@ -9955,22 +7316,13 @@ class InspeccionService:
 
             inicio = rango.split(":")[0]
 
-            ws[inicio] = (
-                f"{etiqueta}\n{valor}"
-            )
+            ws[inicio] = f"{etiqueta}\n{valor}"
 
             ws[inicio].fill = fill_azul_oscuro
-            ws[inicio].font = Font(
-                bold=True,
-                color=BLANCO,
-                size=9
-            )
+            ws[inicio].font = Font(bold=True, color=BLANCO, size=9)
             ws[inicio].alignment = center
 
-            aplicar_borde_rango(
-                ws,
-                rango
-            )
+            aplicar_borde_rango(ws, rango)
 
         # =========================================================
         # ALTURA ENCABEZADO
@@ -9985,20 +7337,11 @@ class InspeccionService:
         # INFORMACIÓN GENERAL
         # =========================================================
 
-        aplicar_encabezado(
-            ws,
-            6,
-            12,
-            "INFORMACIÓN GENERAL DEL ACTIVO"
-        )
+        aplicar_encabezado(ws, 6, 12, "INFORMACIÓN GENERAL DEL ACTIVO")
 
         primera = inspecciones[0]
 
-        activo = (
-            primera.vehiculo
-            if primera.vehiculo
-            else primera.maquinaria
-        )
+        activo = primera.vehiculo if primera.vehiculo else primera.maquinaria
 
         operador = primera.usuario
 
@@ -10014,13 +7357,9 @@ class InspeccionService:
 
             if primera.vehiculo.tipo_vehiculo:
 
-                tipo_vehiculo = texto_seguro(
-                    primera.vehiculo.tipo_vehiculo.nombre
-                )
+                tipo_vehiculo = texto_seguro(primera.vehiculo.tipo_vehiculo.nombre)
 
-            identificador = texto_seguro(
-                primera.vehiculo.placa
-            )
+            identificador = texto_seguro(primera.vehiculo.placa)
 
         else:
 
@@ -10028,94 +7367,38 @@ class InspeccionService:
 
             tipo_vehiculo = ""
 
-            if (
-                primera.maquinaria
-                and primera.maquinaria.tipo_maquinaria
-            ):
+            if primera.maquinaria and primera.maquinaria.tipo_maquinaria:
 
-                tipo_vehiculo = texto_seguro(
-                    primera.maquinaria.tipo_maquinaria.nombre
-                )
+                tipo_vehiculo = texto_seguro(primera.maquinaria.tipo_maquinaria.nombre)
 
             identificador = texto_seguro(
-                primera.maquinaria.codigo
-                if primera.maquinaria
-                else ""
+                primera.maquinaria.codigo if primera.maquinaria else ""
             )
 
-        marca = texto_seguro(
-            getattr(
-                activo,
-                "marca",
-                ""
-            )
-        )
+        marca = texto_seguro(getattr(activo, "marca", ""))
 
-        modelo = texto_seguro(
-            getattr(
-                activo,
-                "modelo",
-                ""
-            )
-        )
+        modelo = texto_seguro(getattr(activo, "modelo", ""))
 
-        nombre_operador = texto_seguro(
-            operador.nombre
-            if operador
-            else ""
-        )
+        nombre_operador = texto_seguro(operador.nombre if operador else "")
 
         datos_vehiculo = [
-
-            (
-                "TIPO DE ACTIVO",
-                tipo_activo
-            ),
-
-            (
-                "CLASE / TIPO",
-                tipo_vehiculo
-            ),
-
-            (
-                "PLACA / CÓDIGO",
-                identificador
-            ),
-
-            (
-                "MARCA",
-                marca
-            ),
-
-            (
-                "MODELO",
-                modelo
-            ),
-
-            (
-                "OPERADOR",
-                nombre_operador
-            ),
-
-            (
-                "PERIODO",
-                f"{mes:02d}/{anio}"
-            ),
+            ("TIPO DE ACTIVO", tipo_activo),
+            ("CLASE / TIPO", tipo_vehiculo),
+            ("PLACA / CÓDIGO", identificador),
+            ("MARCA", marca),
+            ("MODELO", modelo),
+            ("OPERADOR", nombre_operador),
+            ("PERIODO", f"{mes:02d}/{anio}"),
         ]
 
         posiciones = [
-
             ("A8:B8", "C8:E8"),
             ("F8:G8", "H8:L8"),
-
             ("A10:B10", "C10:E10"),
             ("F10:G10", "H10:L10"),
-
             ("A12:B12", "C12:E12"),
             ("F12:G12", "H12:L12"),
-
             ("A13:B13", "C13:E13"),
-
         ]
 
         for i, posicion in enumerate(posiciones):
@@ -10142,10 +7425,7 @@ class InspeccionService:
             ws[celda].font = font_label
             ws[celda].alignment = center
 
-            aplicar_borde_rango(
-                ws,
-                label_pos
-            )
+            aplicar_borde_rango(ws, label_pos)
 
             # -----------------------------------------------------
             # VALOR
@@ -10160,120 +7440,54 @@ class InspeccionService:
             ws[celda_valor].font = font_normal
             ws[celda_valor].alignment = center
 
-            aplicar_borde_rango(
-                ws,
-                value_pos
-            )
+            aplicar_borde_rango(ws, value_pos)
 
         # =========================================================
         # RESUMEN ESTADÍSTICO
         # =========================================================
 
-        total_inspecciones = len(
-            inspecciones
+        total_inspecciones = len(inspecciones)
+
+        total_anomalias = sum(len(i.anomalias) for i in inspecciones)
+
+        finalizadas = len(
+            [
+                i
+                for i in inspecciones
+                if (texto_seguro(i.estado).upper() in ["FINALIZADA", "REVISADA"])
+            ]
         )
 
-        total_anomalias = sum(
-            len(i.anomalias)
-            for i in inspecciones
+        pendientes = len(
+            [
+                i
+                for i in inspecciones
+                if (texto_seguro(i.estado).upper() == "PENDIENTE_CIERRE")
+            ]
         )
 
-        finalizadas = len([
-            i
-            for i in inspecciones
-            if (
-                texto_seguro(
-                    i.estado
-                ).upper()
-                in [
-                    "FINALIZADA",
-                    "REVISADA"
-                ]
-            )
-        ])
-
-        pendientes = len([
-            i
-            for i in inspecciones
-            if (
-                texto_seguro(
-                    i.estado
-                ).upper()
-                == "PENDIENTE_CIERRE"
-            )
-        ])
-
-        anuladas = len([
-            i
-            for i in inspecciones
-            if (
-                texto_seguro(
-                    i.estado
-                ).upper()
-                == "ANULADA"
-            )
-        ])
+        anuladas = len(
+            [i for i in inspecciones if (texto_seguro(i.estado).upper() == "ANULADA")]
+        )
 
         cumplimiento = 0
 
         if total_inspecciones > 0:
 
-            cumplimiento = round(
-                (
-                    finalizadas
-                    / total_inspecciones
-                ) * 100,
-                2
-            )
+            cumplimiento = round((finalizadas / total_inspecciones) * 100, 2)
 
-        aplicar_encabezado(
-            ws,
-            15,
-            12,
-            "RESUMEN ESTADÍSTICO DEL PERIODO"
-        )
+        aplicar_encabezado(ws, 15, 12, "RESUMEN ESTADÍSTICO DEL PERIODO")
 
         indicadores = [
-
-            (
-                "TOTAL INSPECCIONES",
-                total_inspecciones,
-                fill_azul_claro
-            ),
-
-            (
-                "FINALIZADAS / REVISADAS",
-                finalizadas,
-                fill_verde
-            ),
-
-            (
-                "PENDIENTES DE CIERRE",
-                pendientes,
-                fill_naranja
-            ),
-
-            (
-                "ANOMALÍAS",
-                total_anomalias,
-                fill_rojo
-            ),
-
-            (
-                "ANULADAS",
-                anuladas,
-                fill_gris
-            ),
-
-            (
-                "CUMPLIMIENTO",
-                f"{cumplimiento}%",
-                fill_azul_claro
-            ),
+            ("TOTAL INSPECCIONES", total_inspecciones, fill_azul_claro),
+            ("FINALIZADAS / REVISADAS", finalizadas, fill_verde),
+            ("PENDIENTES DE CIERRE", pendientes, fill_naranja),
+            ("ANOMALÍAS", total_anomalias, fill_rojo),
+            ("ANULADAS", anuladas, fill_gris),
+            ("CUMPLIMIENTO", f"{cumplimiento}%", fill_azul_claro),
         ]
 
         posiciones_indicadores = [
-
             ("A17:B19"),
             ("C17:D19"),
             ("E17:F19"),
@@ -10282,9 +7496,7 @@ class InspeccionService:
             ("K17:L19"),
         ]
 
-        for index, rango in enumerate(
-            posiciones_indicadores
-        ):
+        for index, rango in enumerate(posiciones_indicadores):
 
             ws.merge_cells(rango)
 
@@ -10294,19 +7506,13 @@ class InspeccionService:
             valor = indicadores[index][1]
             fill = indicadores[index][2]
 
-            ws[celda] = (
-                f"{etiqueta}\n\n"
-                f"{valor}"
-            )
+            ws[celda] = f"{etiqueta}\n\n" f"{valor}"
 
             ws[celda].fill = fill
             ws[celda].font = font_indicador
             ws[celda].alignment = center
 
-            aplicar_borde_rango(
-                ws,
-                rango
-            )
+            aplicar_borde_rango(ws, rango)
 
         ws.row_dimensions[17].height = 24
         ws.row_dimensions[18].height = 24
@@ -10316,12 +7522,7 @@ class InspeccionService:
         # INFORMACIÓN DE FILTRO
         # =========================================================
 
-        aplicar_encabezado(
-            ws,
-            21,
-            12,
-            "FILTROS APLICADOS"
-        )
+        aplicar_encabezado(ws, 21, 12, "FILTROS APLICADOS")
 
         filtro = "TODOS LOS ACTIVOS"
 
@@ -10333,19 +7534,13 @@ class InspeccionService:
 
         ws.merge_cells("A23:L23")
 
-        ws["A23"] = (
-            f"Periodo: {mes:02d}/{anio}   |   "
-            f"Filtro: {filtro}"
-        )
+        ws["A23"] = f"Periodo: {mes:02d}/{anio}   |   " f"Filtro: {filtro}"
 
         ws["A23"].fill = fill_gris
         ws["A23"].font = font_normal
         ws["A23"].alignment = center
 
-        aplicar_borde_rango(
-            ws,
-            "A23:L23"
-        )
+        aplicar_borde_rango(ws, "A23:L23")
 
         # =========================================================
         # CONFIGURACIÓN IMPRESIÓN
@@ -10368,27 +7563,20 @@ class InspeccionService:
         ws.page_margins.top = 0.40
         ws.page_margins.bottom = 0.40
 
-        ws.oddFooter.center.text = (
-            "IntelliFeet · Sistema de Gestión Operacional"
-        )
+        ws.oddFooter.center.text = "IntelliFeet · Sistema de Gestión Operacional"
 
-        ws.oddFooter.right.text = (
-            "Página &P de &N"
-        )
+        ws.oddFooter.right.text = "Página &P de &N"
 
         # =========================================================
         # HOJA HISTORIAL
         # =========================================================
 
-        historial = wb.create_sheet(
-            "Historial"
-        )
+        historial = wb.create_sheet("Historial")
 
         historial.sheet_view.showGridLines = False
         historial.sheet_view.zoomScale = 90
 
         columnas_historial = {
-
             "A": 15,
             "B": 10,
             "C": 20,
@@ -10398,14 +7586,11 @@ class InspeccionService:
             "G": 18,
             "H": 18,
             "I": 18,
-
         }
 
         for col, ancho in columnas_historial.items():
 
-            historial.column_dimensions[
-                col
-            ].width = ancho
+            historial.column_dimensions[col].width = ancho
 
         # =========================================================
         # TITULO
@@ -10413,18 +7598,13 @@ class InspeccionService:
 
         historial.merge_cells("A1:I1")
 
-        historial["A1"] = (
-            "HISTORIAL DE INSPECCIONES PREOPERACIONALES"
-        )
+        historial["A1"] = "HISTORIAL DE INSPECCIONES PREOPERACIONALES"
 
         historial["A1"].fill = fill_azul_oscuro
         historial["A1"].font = font_titulo
         historial["A1"].alignment = center
 
-        aplicar_borde_rango(
-            historial,
-            "A1:I1"
-        )
+        aplicar_borde_rango(historial, "A1:I1")
 
         historial.row_dimensions[1].height = 35
 
@@ -10434,30 +7614,20 @@ class InspeccionService:
 
         historial.merge_cells("A2:I2")
 
-        historial["A2"] = (
-            f"Periodo consultado: {mes:02d}/{anio}"
-        )
+        historial["A2"] = f"Periodo consultado: {mes:02d}/{anio}"
 
         historial["A2"].fill = fill_azul_claro
-        historial["A2"].font = Font(
-            bold=True,
-            color=AZUL_OSCURO,
-            size=10
-        )
+        historial["A2"].font = Font(bold=True, color=AZUL_OSCURO, size=10)
 
         historial["A2"].alignment = center
 
-        aplicar_borde_rango(
-            historial,
-            "A2:I2"
-        )
+        aplicar_borde_rango(historial, "A2:I2")
 
         # =========================================================
         # HEADERS
         # =========================================================
 
         headers_historial = [
-
             "FECHA",
             "HORA",
             "ESTADO",
@@ -10467,18 +7637,11 @@ class InspeccionService:
             "LECTURA INICIAL",
             "LECTURA FINAL",
             "DIFERENCIA",
-
         ]
 
-        for col, titulo_col in enumerate(
-            headers_historial,
-            1
-        ):
+        for col, titulo_col in enumerate(headers_historial, 1):
 
-            celda = historial.cell(
-                4,
-                col
-            )
+            celda = historial.cell(4, col)
 
             celda.value = titulo_col
             celda.fill = fill_azul_medio
@@ -10496,134 +7659,62 @@ class InspeccionService:
 
             fecha_inicio = inspeccion.hora_inicio
 
-            historial.cell(
-                fila,
-                1
-            ).value = (
-                fecha_inicio.strftime(
-                    "%d/%m/%Y"
-                )
-                if fecha_inicio
-                else ""
+            historial.cell(fila, 1).value = (
+                fecha_inicio.strftime("%d/%m/%Y") if fecha_inicio else ""
             )
 
-            historial.cell(
-                fila,
-                2
-            ).value = (
-                fecha_inicio.strftime(
-                    "%H:%M"
-                )
-                if fecha_inicio
-                else ""
+            historial.cell(fila, 2).value = (
+                fecha_inicio.strftime("%H:%M") if fecha_inicio else ""
             )
 
-            estado = texto_seguro(
-                inspeccion.estado
-            )
+            estado = texto_seguro(inspeccion.estado)
 
-            celda_estado = historial.cell(
-                fila,
-                3
-            )
+            celda_estado = historial.cell(fila, 3)
 
             celda_estado.value = estado
-            aplicar_estado(
-                celda_estado,
-                estado
+            aplicar_estado(celda_estado, estado)
+
+            historial.cell(fila, 4).value = len(inspeccion.anomalias)
+
+            historial.cell(fila, 5).value = (
+                inspeccion.usuario.nombre if inspeccion.usuario else ""
             )
 
-            historial.cell(
-                fila,
-                4
-            ).value = len(
-                inspeccion.anomalias
-            )
-
-            historial.cell(
-                fila,
-                5
-            ).value = (
-                inspeccion.usuario.nombre
-                if inspeccion.usuario
-                else ""
-            )
-
-            historial.cell(
-                fila,
-                6
-            ).value = (
-                inspeccion.observaciones_generales
-                or ""
-            )
+            historial.cell(fila, 6).value = inspeccion.observaciones_generales or ""
 
             lectura_inicial = (
-                float(
-                    inspeccion.contador_inicial
-                )
-                if inspeccion.contador_inicial
-                is not None
+                float(inspeccion.contador_inicial)
+                if inspeccion.contador_inicial is not None
                 else None
             )
 
             lectura_final = (
-                float(
-                    inspeccion.contador_final
-                )
-                if inspeccion.contador_final
-                is not None
+                float(inspeccion.contador_final)
+                if inspeccion.contador_final is not None
                 else None
             )
 
-            historial.cell(
-                fila,
-                7
-            ).value = lectura_inicial
+            historial.cell(fila, 7).value = lectura_inicial
 
-            historial.cell(
-                fila,
-                8
-            ).value = lectura_final
+            historial.cell(fila, 8).value = lectura_final
 
-            if (
-                lectura_inicial is not None
-                and lectura_final is not None
-            ):
+            if lectura_inicial is not None and lectura_final is not None:
 
-                historial.cell(
-                    fila,
-                    9
-                ).value = round(
-                    lectura_final
-                    - lectura_inicial,
-                    2
+                historial.cell(fila, 9).value = round(
+                    lectura_final - lectura_inicial, 2
                 )
 
             # -----------------------------------------------------
             # ESTILOS
             # -----------------------------------------------------
 
-            for col in range(
-                1,
-                10
-            ):
+            for col in range(1, 10):
 
-                celda = historial.cell(
-                    fila,
-                    col
-                )
+                celda = historial.cell(fila, col)
 
                 celda.border = border
 
-                if col in [
-                    1,
-                    2,
-                    3,
-                    4,
-                    7,
-                    8,
-                    9
-                ]:
+                if col in [1, 2, 3, 4, 7, 8, 9]:
 
                     celda.alignment = center
 
@@ -10644,28 +7735,17 @@ class InspeccionService:
             # ANOMALÍAS
             # -----------------------------------------------------
 
-            celda_anomalias = historial.cell(
-                fila,
-                4
-            )
+            celda_anomalias = historial.cell(fila, 4)
 
             if len(inspeccion.anomalias) > 0:
 
                 celda_anomalias.fill = fill_rojo
-                celda_anomalias.font = Font(
-                    bold=True,
-                    color=ROJO,
-                    size=10
-                )
+                celda_anomalias.font = Font(bold=True, color=ROJO, size=10)
 
             else:
 
                 celda_anomalias.fill = fill_verde
-                celda_anomalias.font = Font(
-                    bold=True,
-                    color=VERDE,
-                    size=10
-                )
+                celda_anomalias.font = Font(bold=True, color=VERDE, size=10)
 
             fila += 1
 
@@ -10673,46 +7753,31 @@ class InspeccionService:
 
         if fila > 5:
 
-            historial.auto_filter.ref = (
-                f"A4:I{fila - 1}"
-            )
+            historial.auto_filter.ref = f"A4:I{fila - 1}"
 
         historial.print_title_rows = "1:4"
 
         historial.page_setup.orientation = "landscape"
-        historial.page_setup.paperSize = (
-            historial.PAPERSIZE_A4
-        )
+        historial.page_setup.paperSize = historial.PAPERSIZE_A4
 
         historial.page_setup.fitToWidth = 1
         historial.page_setup.fitToHeight = 0
 
         historial.sheet_properties.pageSetUpPr.fitToPage = True
 
-        historial.oddFooter.center.text = (
-            "IntelliFeet · Historial de inspecciones"
-        )
+        historial.oddFooter.center.text = "IntelliFeet · Historial de inspecciones"
 
-        historial.oddFooter.right.text = (
-            "Página &P de &N"
-        )
+        historial.oddFooter.right.text = "Página &P de &N"
 
         # =========================================================
         # HOJAS INDIVIDUALES
         # =========================================================
 
-        for indice, inspeccion in enumerate(
-            inspecciones,
-            start=1
-        ):
+        for indice, inspeccion in enumerate(inspecciones, start=1):
 
-            nombre_hoja = (
-                f"INS {indice}"
-            )
+            nombre_hoja = f"INS {indice}"
 
-            hoja = wb.create_sheet(
-                nombre_hoja[:31]
-            )
+            hoja = wb.create_sheet(nombre_hoja[:31])
 
             hoja.sheet_view.showGridLines = False
             hoja.sheet_view.zoomScale = 90
@@ -10722,20 +7787,16 @@ class InspeccionService:
             # =====================================================
 
             columnas_detalle = {
-
                 "A": 24,
                 "B": 43,
                 "C": 17,
                 "D": 42,
                 "E": 30,
-
             }
 
             for col, ancho in columnas_detalle.items():
 
-                hoja.column_dimensions[
-                    col
-                ].width = ancho
+                hoja.column_dimensions[col].width = ancho
 
             # =====================================================
             # TITULO
@@ -10743,18 +7804,13 @@ class InspeccionService:
 
             hoja.merge_cells("A1:E2")
 
-            hoja["A1"] = (
-                f"DETALLE DE INSPECCIÓN #{indice}"
-            )
+            hoja["A1"] = f"DETALLE DE INSPECCIÓN #{indice}"
 
             hoja["A1"].fill = fill_azul_oscuro
             hoja["A1"].font = font_titulo
             hoja["A1"].alignment = center
 
-            aplicar_borde_rango(
-                hoja,
-                "A1:E2"
-            )
+            aplicar_borde_rango(hoja, "A1:E2")
 
             # =====================================================
             # INFORMACIÓN
@@ -10762,9 +7818,7 @@ class InspeccionService:
 
             if inspeccion.vehiculo:
 
-                identificador = texto_seguro(
-                    inspeccion.vehiculo.placa
-                )
+                identificador = texto_seguro(inspeccion.vehiculo.placa)
 
                 tipo_activo = "VEHÍCULO"
 
@@ -10772,171 +7826,87 @@ class InspeccionService:
 
                 if inspeccion.vehiculo.tipo_vehiculo:
 
-                    tipo_nombre = texto_seguro(
-                        inspeccion.vehiculo.tipo_vehiculo.nombre
-                    )
+                    tipo_nombre = texto_seguro(inspeccion.vehiculo.tipo_vehiculo.nombre)
 
             else:
 
                 identificador = texto_seguro(
-                    inspeccion.maquinaria.codigo
-                    if inspeccion.maquinaria
-                    else ""
+                    inspeccion.maquinaria.codigo if inspeccion.maquinaria else ""
                 )
 
                 tipo_activo = "MAQUINARIA"
 
                 tipo_nombre = ""
 
-                if (
-                    inspeccion.maquinaria
-                    and inspeccion.maquinaria.tipo_maquinaria
-                ):
+                if inspeccion.maquinaria and inspeccion.maquinaria.tipo_maquinaria:
 
                     tipo_nombre = texto_seguro(
                         inspeccion.maquinaria.tipo_maquinaria.nombre
                     )
 
             datos = [
-
                 (
                     "FECHA",
                     (
-                        inspeccion.hora_inicio.strftime(
-                            "%d/%m/%Y %H:%M"
-                        )
+                        inspeccion.hora_inicio.strftime("%d/%m/%Y %H:%M")
                         if inspeccion.hora_inicio
                         else ""
-                    )
+                    ),
                 ),
-
-                (
-                    "ESTADO",
-                    texto_seguro(
-                        inspeccion.estado
-                    )
-                ),
-
-                (
-                    "TIPO DE ACTIVO",
-                    tipo_activo
-                ),
-
-                (
-                    "CLASE / TIPO",
-                    tipo_nombre
-                ),
-
-                (
-                    "PLACA / CÓDIGO",
-                    identificador
-                ),
-
-                (
-                    "OPERADOR",
-                    (
-                        inspeccion.usuario.nombre
-                        if inspeccion.usuario
-                        else ""
-                    )
-                ),
-
+                ("ESTADO", texto_seguro(inspeccion.estado)),
+                ("TIPO DE ACTIVO", tipo_activo),
+                ("CLASE / TIPO", tipo_nombre),
+                ("PLACA / CÓDIGO", identificador),
+                ("OPERADOR", (inspeccion.usuario.nombre if inspeccion.usuario else "")),
                 (
                     "LECTURA INICIAL",
                     (
-                        float(
-                            inspeccion.contador_inicial
-                        )
-                        if inspeccion.contador_inicial
-                        is not None
+                        float(inspeccion.contador_inicial)
+                        if inspeccion.contador_inicial is not None
                         else ""
-                    )
+                    ),
                 ),
-
                 (
                     "LECTURA FINAL",
                     (
-                        float(
-                            inspeccion.contador_final
-                        )
-                        if inspeccion.contador_final
-                        is not None
+                        float(inspeccion.contador_final)
+                        if inspeccion.contador_final is not None
                         else ""
-                    )
+                    ),
                 ),
-
             ]
 
             fila = 4
 
             for campo, valor in datos:
 
-                hoja.cell(
-                    fila,
-                    1
-                ).value = campo
+                hoja.cell(fila, 1).value = campo
 
-                hoja.cell(
-                    fila,
-                    1
-                ).fill = fill_azul_claro
+                hoja.cell(fila, 1).fill = fill_azul_claro
 
-                hoja.cell(
-                    fila,
-                    1
-                ).font = font_label
+                hoja.cell(fila, 1).font = font_label
 
-                hoja.cell(
-                    fila,
-                    1
-                ).alignment = center
+                hoja.cell(fila, 1).alignment = center
 
-                hoja.cell(
-                    fila,
-                    1
-                ).border = border
+                hoja.cell(fila, 1).border = border
 
                 hoja.merge_cells(
-                    start_row=fila,
-                    start_column=2,
-                    end_row=fila,
-                    end_column=5
+                    start_row=fila, start_column=2, end_row=fila, end_column=5
                 )
 
-                hoja.cell(
-                    fila,
-                    2
-                ).value = valor
+                hoja.cell(fila, 2).value = valor
 
-                hoja.cell(
-                    fila,
-                    2
-                ).fill = fill_blanco
+                hoja.cell(fila, 2).fill = fill_blanco
 
-                hoja.cell(
-                    fila,
-                    2
-                ).font = font_normal
+                hoja.cell(fila, 2).font = font_normal
 
-                hoja.cell(
-                    fila,
-                    2
-                ).alignment = left
+                hoja.cell(fila, 2).alignment = left
 
-                aplicar_borde_rango(
-                    hoja,
-                    f"B{fila}:E{fila}"
-                )
+                aplicar_borde_rango(hoja, f"B{fila}:E{fila}")
 
                 if campo == "ESTADO":
 
-                    aplicar_estado(
-                        hoja.cell(
-                            fila,
-                            2
-                        ),
-                        valor
-                    )
+                    aplicar_estado(hoja.cell(fila, 2), valor)
 
                 fila += 1
 
@@ -10946,48 +7916,25 @@ class InspeccionService:
 
             fila += 1
 
-            aplicar_encabezado(
-                hoja,
-                fila,
-                5,
-                "OBSERVACIONES GENERALES"
-            )
+            aplicar_encabezado(hoja, fila, 5, "OBSERVACIONES GENERALES")
 
             fila += 1
 
             hoja.merge_cells(
-                start_row=fila,
-                start_column=1,
-                end_row=fila + 2,
-                end_column=5
+                start_row=fila, start_column=1, end_row=fila + 2, end_column=5
             )
 
-            hoja.cell(
-                fila,
-                1
-            ).value = (
-                inspeccion.observaciones_generales
-                or "Sin observaciones generales."
+            hoja.cell(fila, 1).value = (
+                inspeccion.observaciones_generales or "Sin observaciones generales."
             )
 
-            hoja.cell(
-                fila,
-                1
-            ).alignment = Alignment(
-                horizontal="left",
-                vertical="top",
-                wrap_text=True
+            hoja.cell(fila, 1).alignment = Alignment(
+                horizontal="left", vertical="top", wrap_text=True
             )
 
-            hoja.cell(
-                fila,
-                1
-            ).font = font_normal
+            hoja.cell(fila, 1).font = font_normal
 
-            aplicar_borde_rango(
-                hoja,
-                f"A{fila}:E{fila + 2}"
-            )
+            aplicar_borde_rango(hoja, f"A{fila}:E{fila + 2}")
 
             fila += 4
 
@@ -10995,34 +7942,21 @@ class InspeccionService:
             # RESPUESTAS
             # =====================================================
 
-            aplicar_encabezado(
-                hoja,
-                fila,
-                5,
-                "RESULTADO DE LA INSPECCIÓN"
-            )
+            aplicar_encabezado(hoja, fila, 5, "RESULTADO DE LA INSPECCIÓN")
 
             fila += 1
 
             headers = [
-
                 "CATEGORÍA",
                 "PREGUNTA / ÍTEM",
                 "RESPUESTA",
                 "OBSERVACIÓN",
                 "EVIDENCIA FOTOGRÁFICA",
-
             ]
 
-            for col, titulo_col in enumerate(
-                headers,
-                1
-            ):
+            for col, titulo_col in enumerate(headers, 1):
 
-                celda = hoja.cell(
-                    fila,
-                    col
-                )
+                celda = hoja.cell(fila, col)
 
                 celda.value = titulo_col
                 celda.fill = fill_azul_medio
@@ -11037,33 +7971,12 @@ class InspeccionService:
             # =====================================================
 
             respuestas_ordenadas = sorted(
-
                 inspeccion.respuestas,
-
                 key=lambda respuesta: (
-
-                    getattr(
-                        getattr(
-                            respuesta.item,
-                            "categoria",
-                            None
-                        ),
-                        "orden",
-                        9999
-                    ),
-
-                    getattr(
-                        respuesta.item,
-                        "orden",
-                        9999
-                    ),
-
-                    respuesta.item.id
-                    if respuesta.item
-                    else 9999
-
-                )
-
+                    getattr(getattr(respuesta.item, "categoria", None), "orden", 9999),
+                    getattr(respuesta.item, "orden", 9999),
+                    respuesta.item.id if respuesta.item else 9999,
+                ),
             )
 
             for respuesta in respuestas_ordenadas:
@@ -11073,68 +7986,35 @@ class InspeccionService:
                 if not item:
                     continue
 
-                categoria = getattr(
-                    item,
-                    "categoria",
-                    None
-                )
+                categoria = getattr(item, "categoria", None)
 
-                nombre_categoria = texto_seguro(
-                    categoria.nombre
-                    if categoria
-                    else ""
-                )
+                nombre_categoria = texto_seguro(categoria.nombre if categoria else "")
 
-                pregunta = texto_seguro(
-                    item.descripcion
-                )
+                pregunta = texto_seguro(item.descripcion)
 
-                valor = texto_seguro(
-                    respuesta.valor
-                )
+                valor = texto_seguro(respuesta.valor)
 
-                observacion = texto_seguro(
-                    respuesta.observacion,
-                    "Sin observación."
-                )
+                observacion = texto_seguro(respuesta.observacion, "Sin observación.")
 
                 # -------------------------------------------------
                 # DATOS
                 # -------------------------------------------------
 
-                hoja.cell(
-                    fila,
-                    1
-                ).value = nombre_categoria
+                hoja.cell(fila, 1).value = nombre_categoria
 
-                hoja.cell(
-                    fila,
-                    2
-                ).value = pregunta
+                hoja.cell(fila, 2).value = pregunta
 
-                hoja.cell(
-                    fila,
-                    3
-                ).value = valor
+                hoja.cell(fila, 3).value = valor
 
-                hoja.cell(
-                    fila,
-                    4
-                ).value = observacion
+                hoja.cell(fila, 4).value = observacion
 
                 # -------------------------------------------------
                 # ESTILOS
                 # -------------------------------------------------
 
-                for col in range(
-                    1,
-                    6
-                ):
+                for col in range(1, 6):
 
-                    celda = hoja.cell(
-                        fila,
-                        col
-                    )
+                    celda = hoja.cell(fila, col)
 
                     celda.border = border
 
@@ -11154,51 +8034,27 @@ class InspeccionService:
                 # COLOR RESPUESTA
                 # -------------------------------------------------
 
-                aplicar_respuesta(
-                    hoja.cell(
-                        fila,
-                        3
-                    ),
-                    valor
-                )
+                aplicar_respuesta(hoja.cell(fila, 3), valor)
 
                 # -------------------------------------------------
                 # FOTOS
                 # -------------------------------------------------
 
-                fotos = (
-                    respuesta.fotos
-                    if respuesta.fotos
-                    else []
-                )
+                fotos = respuesta.fotos if respuesta.fotos else []
 
                 fotos_validas = []
 
                 for foto in fotos[:3]:
 
-                    archivo = texto_seguro(
-                        foto.archivo
-                        if foto
-                        else ""
-                    )
+                    archivo = texto_seguro(foto.archivo if foto else "")
 
                     if not archivo:
                         continue
 
                     posibles_rutas = [
-
                         archivo,
-
-                        os.path.join(
-                            "uploads",
-                            archivo
-                        ),
-
-                        os.path.join(
-                            "static",
-                            archivo
-                        ),
-
+                        os.path.join("uploads", archivo),
+                        os.path.join("static", archivo),
                     ]
 
                     ruta_foto = None
@@ -11212,9 +8068,7 @@ class InspeccionService:
 
                     if ruta_foto:
 
-                        fotos_validas.append(
-                            ruta_foto
-                        )
+                        fotos_validas.append(ruta_foto)
 
                 if fotos_validas:
 
@@ -11224,21 +8078,14 @@ class InspeccionService:
                         # INSERTAR PRIMERA FOTO
                         # -------------------------------------------------
 
-                        imagen = Image(
-                            fotos_validas[0]
-                        )
+                        imagen = Image(fotos_validas[0])
 
                         imagen.width = 145
                         imagen.height = 105
 
-                        hoja.add_image(
-                            imagen,
-                            f"E{fila}"
-                        )
+                        hoja.add_image(imagen, f"E{fila}")
 
-                        hoja.row_dimensions[
-                            fila
-                        ].height = 85
+                        hoja.row_dimensions[fila].height = 85
 
                         # -------------------------------------------------
                         # INFORMACIÓN DE FOTOS ADICIONALES
@@ -11246,10 +8093,7 @@ class InspeccionService:
 
                         if len(fotos_validas) > 1:
 
-                            hoja.cell(
-                                fila,
-                                5
-                            ).comment = (
+                            hoja.cell(fila, 5).comment = (
                                 f"Esta respuesta contiene "
                                 f"{len(fotos_validas)} evidencias "
                                 f"fotográficas."
@@ -11257,36 +8101,17 @@ class InspeccionService:
 
                     except Exception:
 
-                        hoja.cell(
-                            fila,
-                            5
-                        ).value = (
-                            "Evidencia fotográfica"
-                        )
+                        hoja.cell(fila, 5).value = "Evidencia fotográfica"
 
-                        hoja.cell(
-                            fila,
-                            5
-                        ).alignment = center
+                        hoja.cell(fila, 5).alignment = center
 
                 else:
 
-                    hoja.cell(
-                        fila,
-                        5
-                    ).value = (
-                        "SIN EVIDENCIA"
-                    )
+                    hoja.cell(fila, 5).value = "SIN EVIDENCIA"
 
-                    hoja.cell(
-                        fila,
-                        5
-                    ).font = font_pequena
+                    hoja.cell(fila, 5).font = font_pequena
 
-                    hoja.cell(
-                        fila,
-                        5
-                    ).alignment = center
+                    hoja.cell(fila, 5).alignment = center
 
                 fila += 1
 
@@ -11299,34 +8124,22 @@ class InspeccionService:
                 fila += 2
 
                 aplicar_encabezado(
-                    hoja,
-                    fila,
-                    5,
-                    "ANOMALÍAS REPORTADAS",
-                    fill=fill_rojo
+                    hoja, fila, 5, "ANOMALÍAS REPORTADAS", fill=fill_rojo
                 )
 
                 fila += 1
 
                 headers_anomalias = [
-
                     "TÍTULO",
                     "DESCRIPCIÓN",
                     "PRIORIDAD",
                     "ESTADO",
                     "FECHA",
-
                 ]
 
-                for col, titulo_col in enumerate(
-                    headers_anomalias,
-                    1
-                ):
+                for col, titulo_col in enumerate(headers_anomalias, 1):
 
-                    celda = hoja.cell(
-                        fila,
-                        col
-                    )
+                    celda = hoja.cell(fila, col)
 
                     celda.value = titulo_col
                     celda.fill = fill_azul_medio
@@ -11338,72 +8151,29 @@ class InspeccionService:
 
                 for anomalia in inspeccion.anomalias:
 
-                    hoja.cell(
-                        fila,
-                        1
-                    ).value = texto_seguro(
-                        anomalia.titulo
-                    )
+                    hoja.cell(fila, 1).value = texto_seguro(anomalia.titulo)
 
-                    hoja.cell(
-                        fila,
-                        2
-                    ).value = texto_seguro(
-                        anomalia.descripcion
-                    )
+                    hoja.cell(fila, 2).value = texto_seguro(anomalia.descripcion)
 
-                    prioridad = texto_seguro(
-                        getattr(
-                            anomalia,
-                            "prioridad",
-                            ""
-                        )
-                    )
+                    prioridad = texto_seguro(getattr(anomalia, "prioridad", ""))
 
-                    estado_anomalia = texto_seguro(
-                        getattr(
-                            anomalia,
-                            "estado",
-                            ""
-                        )
-                    )
+                    estado_anomalia = texto_seguro(getattr(anomalia, "estado", ""))
 
-                    hoja.cell(
-                        fila,
-                        3
-                    ).value = prioridad
+                    hoja.cell(fila, 3).value = prioridad
 
-                    hoja.cell(
-                        fila,
-                        4
-                    ).value = estado_anomalia
+                    hoja.cell(fila, 4).value = estado_anomalia
 
-                    fecha_anomalia = getattr(
-                        anomalia,
-                        "created_at",
-                        None
-                    )
+                    fecha_anomalia = getattr(anomalia, "created_at", None)
 
-                    hoja.cell(
-                        fila,
-                        5
-                    ).value = (
-                        fecha_anomalia.strftime(
-                            "%d/%m/%Y %H:%M"
-                        )
+                    hoja.cell(fila, 5).value = (
+                        fecha_anomalia.strftime("%d/%m/%Y %H:%M")
                         if fecha_anomalia
                         else ""
                     )
 
-                    for col in range(
-                        1,
-                        6
-                    ):
+                    for col in range(1, 6):
 
-                        celda = hoja.cell(
-                            fila,
-                            col
-                        )
+                        celda = hoja.cell(fila, col)
 
                         celda.border = border
                         celda.alignment = left
@@ -11419,32 +8189,14 @@ class InspeccionService:
                     # ---------------------------------------------
 
                     if prioridad.upper() == "CRITICA":
-                        hoja.cell(
-                            fila,
-                            3
-                        ).fill = fill_rojo
+                        hoja.cell(fila, 3).fill = fill_rojo
 
-                        hoja.cell(
-                            fila,
-                            3
-                        ).font = Font(
-                            bold=True,
-                            color=ROJO
-                        )
+                        hoja.cell(fila, 3).font = Font(bold=True, color=ROJO)
 
                     elif prioridad.upper() == "ALTA":
-                        hoja.cell(
-                            fila,
-                            3
-                        ).fill = fill_naranja
+                        hoja.cell(fila, 3).fill = fill_naranja
 
-                        hoja.cell(
-                            fila,
-                            3
-                        ).font = Font(
-                            bold=True,
-                            color=NARANJA
-                        )
+                        hoja.cell(fila, 3).font = Font(bold=True, color=NARANJA)
 
                     fila += 1
 
@@ -11454,99 +8206,52 @@ class InspeccionService:
 
             fila += 2
 
-            aplicar_encabezado(
-                hoja,
-                fila,
-                5,
-                "CIERRE DE LA INSPECCIÓN"
-            )
+            aplicar_encabezado(hoja, fila, 5, "CIERRE DE LA INSPECCIÓN")
 
             fila += 1
 
             datos_cierre = [
-
-                (
-                    "FIRMA REGISTRADA",
-                    "SÍ"
-                    if inspeccion.firma_path
-                    else "NO"
-                ),
-
+                ("FIRMA REGISTRADA", "SÍ" if inspeccion.firma_path else "NO"),
                 (
                     "TRATAMIENTO DE DATOS",
-                    "ACEPTADO"
-                    if inspeccion.tratamiento_datos_aceptado
-                    else "NO REGISTRADO"
+                    (
+                        "ACEPTADO"
+                        if inspeccion.tratamiento_datos_aceptado
+                        else "NO REGISTRADO"
+                    ),
                 ),
-
                 (
                     "CONFIRMACIÓN DE FIRMA",
-                    "CONFIRMADA"
-                    if inspeccion.confirma_firma
-                    else "NO REGISTRADA"
+                    "CONFIRMADA" if inspeccion.confirma_firma else "NO REGISTRADA",
                 ),
-
                 (
                     "FECHA CONFIRMACIÓN",
                     (
-                        inspeccion.confirmacion_fecha.strftime(
-                            "%d/%m/%Y %H:%M"
-                        )
+                        inspeccion.confirmacion_fecha.strftime("%d/%m/%Y %H:%M")
                         if inspeccion.confirmacion_fecha
                         else ""
-                    )
+                    ),
                 ),
-
             ]
 
             for campo, valor in datos_cierre:
 
-                hoja.cell(
-                    fila,
-                    1
-                ).value = campo
+                hoja.cell(fila, 1).value = campo
 
-                hoja.cell(
-                    fila,
-                    1
-                ).fill = fill_azul_claro
-                hoja.cell(
-                    fila,
-                    1
-                ).font = font_label
-                hoja.cell(
-                    fila,
-                    1
-                ).alignment = center
-                hoja.cell(
-                    fila,
-                    1
-                ).border = border
+                hoja.cell(fila, 1).fill = fill_azul_claro
+                hoja.cell(fila, 1).font = font_label
+                hoja.cell(fila, 1).alignment = center
+                hoja.cell(fila, 1).border = border
 
                 hoja.merge_cells(
-                    start_row=fila,
-                    start_column=2,
-                    end_row=fila,
-                    end_column=5
+                    start_row=fila, start_column=2, end_row=fila, end_column=5
                 )
 
-                hoja.cell(
-                    fila,
-                    2
-                ).value = valor
-                hoja.cell(
-                    fila,
-                    2
-                ).font = font_normal
-                hoja.cell(
-                    fila,
-                    2
-                ).alignment = left
+                hoja.cell(fila, 2).value = valor
+                hoja.cell(fila, 2).font = font_normal
+                hoja.cell(fila, 2).alignment = left
 
-                aplicar_borde_rango(
-                    hoja,
-                    f"B{fila}:E{fila}"
-                )
+                aplicar_borde_rango(hoja, f"B{fila}:E{fila}")
 
                 fila += 1
 
@@ -11557,9 +8262,7 @@ class InspeccionService:
             hoja.freeze_panes = "A14"
 
             hoja.page_setup.orientation = "landscape"
-            hoja.page_setup.paperSize = (
-                hoja.PAPERSIZE_A4
-            )
+            hoja.page_setup.paperSize = hoja.PAPERSIZE_A4
 
             hoja.page_setup.fitToWidth = 1
             hoja.page_setup.fitToHeight = 0
@@ -11571,31 +8274,22 @@ class InspeccionService:
             hoja.page_margins.top = 0.40
             hoja.page_margins.bottom = 0.40
 
-            hoja.oddFooter.center.text = (
-                "IntelliFeet · Inspección Preoperacional"
-            )
+            hoja.oddFooter.center.text = "IntelliFeet · Inspección Preoperacional"
 
-            hoja.oddFooter.right.text = (
-                "Página &P de &N"
-            )
+            hoja.oddFooter.right.text = "Página &P de &N"
 
         # =========================================================
         # PROPIEDADES DEL ARCHIVO
         # =========================================================
 
-        wb.properties.title = (
-            "Reporte de Inspecciones Preoperacionales"
-        )
+        wb.properties.title = "Reporte de Inspecciones Preoperacionales"
 
-        wb.properties.subject = (
-            f"Reporte del periodo {mes:02d}/{anio}"
-        )
+        wb.properties.subject = f"Reporte del periodo {mes:02d}/{anio}"
 
         wb.properties.creator = "IntelliFeet"
 
         wb.properties.description = (
-            "Reporte generado automáticamente por "
-            "el sistema IntelliFeet."
+            "Reporte generado automáticamente por " "el sistema IntelliFeet."
         )
 
         # =========================================================
@@ -11604,9 +8298,7 @@ class InspeccionService:
 
         buffer = BytesIO()
 
-        wb.save(
-            buffer
-        )
+        wb.save(buffer)
 
         buffer.seek(0)
 
