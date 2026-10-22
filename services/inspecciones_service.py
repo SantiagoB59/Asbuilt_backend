@@ -1432,6 +1432,249 @@ class InspeccionService:
 
     # APLICACION MOVIL
 
+    
+    @staticmethod
+    def sincronizar_anomalia_movil(usuario_id, data, archivos):
+        import os
+        import uuid
+        import hashlib
+
+        from flask import current_app
+        from werkzeug.utils import secure_filename
+
+        archivos_guardados = []
+
+        def validar_uuid(valor, nombre):
+            try:
+                return str(uuid.UUID(str(valor or "").strip()))
+            except (ValueError, TypeError, AttributeError):
+                raise ValueError(f"El campo '{nombre}' debe contener un UUID válido.")
+
+        def guardar_fotografia(archivo):
+            if archivo is None or not getattr(archivo, "filename", None):
+                raise ValueError("La fotografía no es válida.")
+
+            contenido = archivo.read()
+
+            if not contenido:
+                raise ValueError("No se permite una fotografía vacía.")
+
+            max_bytes = current_app.config.get("MAX_CONTENT_LENGTH") or (
+                15 * 1024 * 1024
+            )
+
+            if len(contenido) > max_bytes:
+                raise ValueError("La fotografía supera el tamaño máximo permitido.")
+
+            hash_foto = hashlib.sha256(contenido).hexdigest()
+            archivo.seek(0)
+
+            nombre_original = secure_filename(archivo.filename) or "fotografia.jpg"
+            nombre_final = f"anomalia_{uuid.uuid4().hex}_{nombre_original}"
+
+            directorio = os.path.join(
+                current_app.root_path, "uploads", "anomalias"
+            )
+            os.makedirs(directorio, exist_ok=True)
+
+            ruta_absoluta = os.path.join(directorio, nombre_final)
+
+            with open(ruta_absoluta, "wb") as destino:
+                destino.write(contenido)
+
+            archivos_guardados.append(ruta_absoluta)
+
+            ruta_relativa = os.path.join(
+                "uploads", "anomalias", nombre_final
+            ).replace("\\", "/")
+
+            return ruta_relativa, hash_foto
+
+        try:
+            if not isinstance(data, dict):
+                raise ValueError("El payload debe ser un objeto JSON.")
+
+            uuid_inspeccion = validar_uuid(
+                data.get("uuid_inspeccion"), "uuid_inspeccion"
+            )
+            uuid_anomalia = validar_uuid(
+                data.get("uuid_sync"), "uuid_sync"
+            )
+
+            titulo = str(data.get("titulo") or "").strip()
+            descripcion = data.get("descripcion")
+            prioridad = str(data.get("prioridad") or "MEDIA").strip().upper()
+            fotos_data = data.get("fotos", [])
+
+            if not titulo:
+                raise ValueError("El título de la anomalía es obligatorio.")
+
+            if len(titulo) > 200:
+                raise ValueError("El título no puede superar los 200 caracteres.")
+
+            if descripcion is not None:
+                descripcion = str(descripcion).strip() or None
+
+            if prioridad not in {"BAJA", "MEDIA", "ALTA", "CRITICA"}:
+                raise ValueError("La prioridad de la anomalía no es válida.")
+
+            if not isinstance(fotos_data, list):
+                raise ValueError("Las fotos deben enviarse como una lista.")
+
+            # Buscar la inspección y comprobar la propiedad.
+            inspeccion = Inspeccion.query.filter_by(
+                uuid_sync=uuid_inspeccion
+            ).with_for_update().first()
+
+            if inspeccion is None:
+                raise ValueError(
+                    "La inspección todavía no existe en el servidor. "
+                    "Sincroniza primero su avance."
+                )
+
+            if inspeccion.usuario_id != usuario_id:
+                raise ValueError("La inspección no pertenece al usuario autenticado.")
+
+            if inspeccion.estado == "ANULADA":
+                raise ValueError("No se pueden registrar anomalías en una inspección anulada.")
+
+            # Buscar la anomalía por su UUID para soportar reintentos.
+            anomalia = InspeccionAnomalia.query.filter_by(
+                uuid_sync=uuid_anomalia
+            ).with_for_update().first()
+
+            ya_procesada = anomalia is not None
+
+            if anomalia:
+                if anomalia.inspeccion_id != inspeccion.id:
+                    raise ValueError(
+                        "El UUID de anomalía ya pertenece a otra inspección."
+                    )
+
+                if anomalia.usuario_id != usuario_id:
+                    raise ValueError(
+                        "El UUID de anomalía ya pertenece a otro usuario."
+                    )
+            else:
+                anomalia = InspeccionAnomalia(
+                    uuid_sync=uuid_anomalia,
+                    inspeccion_id=inspeccion.id,
+                    usuario_id=usuario_id,
+                    titulo=titulo,
+                    descripcion=descripcion,
+                    prioridad=prioridad,
+                    estado="ABIERTA",
+                )
+                db.session.add(anomalia)
+                db.session.flush()
+
+            # Calcular hashes de fotografías ya guardadas.
+            hashes_existentes = set()
+
+            fotos_existentes = AnomaliaFoto.query.filter_by(
+                anomalia_id=anomalia.id
+            ).all()
+
+            for foto_existente in fotos_existentes:
+                ruta = os.path.join(
+                    current_app.root_path, foto_existente.archivo
+                )
+
+                if not os.path.isfile(ruta):
+                    continue
+
+                try:
+                    with open(ruta, "rb") as imagen:
+                        hashes_existentes.add(
+                            hashlib.sha256(imagen.read()).hexdigest()
+                        )
+                except OSError:
+                    current_app.logger.exception(
+                        "No se pudo verificar una fotografía de anomalía."
+                    )
+
+            claves_recibidas = set()
+            fotos_guardadas = 0
+
+            for foto_data in fotos_data:
+                if not isinstance(foto_data, dict):
+                    raise ValueError("Una fotografía tiene un formato inválido.")
+
+                archivo_key = str(foto_data.get("archivo_key") or "").strip()
+
+                if not archivo_key:
+                    raise ValueError("Cada fotografía debe indicar archivo_key.")
+
+                if archivo_key in claves_recibidas:
+                    raise ValueError("Hay fotografías repetidas en el payload.")
+
+                claves_recibidas.add(archivo_key)
+
+                archivo = archivos.get(archivo_key)
+
+                if archivo is None:
+                    raise ValueError(
+                        f"No se recibió el archivo '{archivo_key}' indicado en el payload."
+                    )
+
+                contenido = archivo.read()
+
+                if not contenido:
+                    raise ValueError("Una fotografía de anomalía está vacía.")
+
+                hash_foto = hashlib.sha256(contenido).hexdigest()
+                archivo.seek(0)
+
+                hash_cliente = foto_data.get("hash_archivo")
+                if hash_cliente and str(hash_cliente).lower() != hash_foto:
+                    raise ValueError("El hash de una fotografía no coincide.")
+
+                if hash_foto in hashes_existentes:
+                    continue
+
+                ruta_relativa, hash_guardado = guardar_fotografia(archivo)
+
+                db.session.add(
+                    AnomaliaFoto(
+                        anomalia_id=anomalia.id,
+                        archivo=ruta_relativa,
+                    )
+                )
+
+                hashes_existentes.add(hash_guardado)
+                fotos_guardadas += 1
+
+            db.session.flush()
+
+            anomalia_id = anomalia.id
+
+            db.session.commit()
+
+            return {
+                "uuid_anomalia": uuid_anomalia,
+                "uuid_inspeccion": uuid_inspeccion,
+                "anomalia_id": anomalia_id,
+                "fotos_procesadas": fotos_guardadas,
+                "ya_procesada": ya_procesada,
+                "mensaje": "Anomalía sincronizada correctamente.",
+            }
+
+        except Exception:
+            db.session.rollback()
+
+            for ruta in archivos_guardados:
+                try:
+                    if os.path.isfile(ruta):
+                        os.remove(ruta)
+                except OSError:
+                    current_app.logger.exception(
+                        "No se pudo limpiar un archivo de anomalía."
+                    )
+
+            raise
+
+
+
     @staticmethod
     def obtener_configuracion_movil(usuario_id):
         """

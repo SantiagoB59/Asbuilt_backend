@@ -1561,3 +1561,69 @@ def consultar_sincronizacion(uuid_sync):
                 "No fue posible consultar la sincronización."
             )
         }), 500
+        
+
+
+# ==========================================================
+# SINCRONIZAR ANOMALÍA MÓVIL INDEPENDIENTEMENTE
+# ==========================================================
+
+@inspecciones_bp.route(
+    "/movil/anomalias/sincronizar",
+    methods=["POST"],
+)
+@jwt_required()
+def sincronizar_anomalia_movil():
+    import json
+
+    try:
+        usuario = obtener_usuario_actual()
+
+        payload = request.form.get("payload")
+
+        if not payload:
+            return jsonify({
+                "success": False,
+                "message": "Falta el campo payload de sincronización.",
+            }), 400
+
+        try:
+            data = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "El payload JSON no es válido.",
+            }), 400
+
+        if not isinstance(data, dict):
+            return jsonify({
+                "success": False,
+                "message": "El payload debe ser un objeto JSON.",
+            }), 400
+
+        resultado = InspeccionService.sincronizar_anomalia_movil(
+            usuario_id=usuario["id"],
+            data=data,
+            archivos=request.files,
+        )
+
+        return jsonify({
+            "success": True,
+            "data": resultado,
+        }), 200
+
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e),
+        }), 400
+
+    except Exception:
+        current_app.logger.exception(
+            "Error sincronizando anomalía móvil"
+        )
+
+        return jsonify({
+            "success": False,
+            "message": "No fue posible sincronizar la anomalía.",
+        }), 500
