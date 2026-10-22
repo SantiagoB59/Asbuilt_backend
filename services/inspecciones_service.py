@@ -2463,6 +2463,25 @@ class InspeccionService:
                     db.session.add(anomalia)
                     db.session.flush()
 
+                    crear_alerta(
+                        tipo="ANOMALIA",
+                        categoria="INSPECCION",
+                        titulo=anomalia.titulo,
+                        mensaje=anomalia.descripcion or anomalia.titulo,
+                        prioridad=anomalia.prioridad,
+                        origen="MOVIL",
+                        vehiculo_id=inspeccion.vehiculo_id,
+                        maquinaria_id=inspeccion.maquinaria_id,
+                        usuario_id=usuario_id,
+                        metadata={
+                            "anomalia_id": anomalia.id,
+                            "inspeccion_id": inspeccion.id,
+                            "uuid_anomalia": uuid_anomalia,
+                            "uuid_inspeccion": uuid_inspeccion,
+                        },
+                        confirmar_transaccion=False,
+                    )
+
                     anomalias_procesadas += 1
 
                 # Consultar las fotos existentes para evitar
