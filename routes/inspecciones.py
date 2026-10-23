@@ -22,7 +22,7 @@ import uuid
 import traceback
 
 from io import BytesIO
-
+from models import Inspeccion
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -1626,4 +1626,61 @@ def sincronizar_anomalia_movil():
         return jsonify({
             "success": False,
             "message": "No fue posible sincronizar la anomalía.",
+        }), 500
+
+# ==========================================================
+# HISTORIAL DE INSPECCIONES MÓVILES
+# ==========================================================
+
+@inspecciones_bp.route(
+    "/movil/historial",
+    methods=["GET"]
+)
+@jwt_required()
+def historial_movil():
+    try:
+        from sqlalchemy.orm import joinedload, selectinload
+
+        usuario = obtener_usuario_actual()
+        usuario_id = usuario["id"]
+
+        inspecciones = (
+            Inspeccion.query
+            .options(
+                joinedload(Inspeccion.vehiculo),
+                joinedload(Inspeccion.maquinaria),
+                joinedload(Inspeccion.plantilla),
+                selectinload(Inspeccion.respuestas),
+            )
+            .filter(
+                Inspeccion.usuario_id == usuario_id
+            )
+            .order_by(
+                Inspeccion.hora_inicio.desc(),
+                Inspeccion.id.desc()
+            )
+            .all()
+        )
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "inspecciones": [
+                    inspeccion.to_dict()
+                    for inspeccion in inspecciones
+                ],
+                "total": len(inspecciones),
+            }
+        }), 200
+
+    except Exception:
+        current_app.logger.exception(
+            "Error obteniendo historial móvil"
+        )
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "No fue posible obtener el historial de inspecciones."
+            )
         }), 500
