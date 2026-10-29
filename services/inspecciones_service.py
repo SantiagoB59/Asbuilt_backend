@@ -1035,17 +1035,19 @@ class InspeccionService:
 
             if data.get("foto"):
                 inspeccion.foto_contador_final = data["foto"]
-
+            
             # =================================================
-            # ACTUALIZAR HORÓMETRO DE LA MAQUINARIA
+            # ACTUALIZAR LECTURA DEL ACTIVO
             # =================================================
 
-            if tipo_medicion == "HOROMETRO" and inspeccion.maquinaria_id is not None:
-
+            # MAQUINARIA: conservar el comportamiento actual
+            if (
+                tipo_medicion == "HOROMETRO"
+                and inspeccion.maquinaria_id is not None
+            ):
                 maquinaria = Maquinaria.query.get(inspeccion.maquinaria_id)
 
                 if maquinaria:
-
                     maquinaria.horometro_actual = lectura
 
                     registro_horas = MaquinariaHoras(
@@ -1055,6 +1057,17 @@ class InspeccionService:
                     )
 
                     db.session.add(registro_horas)
+
+            # VEHÍCULO O TRACTOMULA: actualizar kilometraje
+            elif (
+                tipo_medicion == "KILOMETRAJE"
+                and inspeccion.vehiculo_id is not None
+            ):
+                vehiculo = Vehiculo.query.get(inspeccion.vehiculo_id)
+
+                if vehiculo:
+                    vehiculo.km_actual = lectura
+
 
         # =====================================================
         # GUARDAR FIRMA DEL OPERADOR
