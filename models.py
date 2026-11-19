@@ -7,6 +7,38 @@ from zoneinfo import ZoneInfo
 from decimal import Decimal
 
 # from models.alerta import Alerta
+
+
+# =====================================================
+# TIPO DE MANTENIMIENTO -> CÓDIGO USADO EN LA INTERFAZ
+# =====================================================
+# La tabla `tipo_mantenimiento` de plan_items guarda valores
+# largos (PREVENTIVO, INSPECCION, ...), mientras que las
+# tablas de mantenimientos guardan un código corto.
+# Esta función evita que se visualicen valores distintos
+# para el mismo mantenimiento.
+CODIGOS_TIPO_MANTENIMIENTO = {
+    'PR': 'PR',
+    'PREVENTIVO': 'PR',
+    'PREVENTIVA': 'PR',
+    'CR': 'CR',
+    'CORRECTIVO': 'CR',
+    'CORRECTIVA': 'CR',
+    'I': 'I',
+    'INSPECCION': 'I',
+    'INSPECCIÓN': 'I',
+    'C': 'C',
+    'CAMBIO': 'C',
+}
+
+
+def codigo_tipo_mantenimiento(valor, defecto='PR'):
+    """Normaliza cualquier variante del tipo a PR / CR / I / C."""
+    if not valor:
+        return defecto
+
+    clave = str(valor).strip().upper()
+    return CODIGOS_TIPO_MANTENIMIENTO.get(clave, defecto)
 # ==========================
 # ROLES
 # ==========================
@@ -1099,7 +1131,7 @@ class Mantenimiento(db.Model):
 
             "km": self.km,
 
-            "tipo": self.tipo,
+            "tipo": codigo_tipo_mantenimiento(self.tipo),
 
             "proveedor": self.proveedor,
 
@@ -1662,12 +1694,29 @@ class MaquinariaMantenimiento(db.Model):
         lazy='joined'
     )
 
+    # Relación directa con el catálogo (por si el plan fue borrado
+    # o el registro histórico no tiene maquinaria_plan_item_id).
+    plan_item = db.relationship(
+        'PlanItem',
+        foreign_keys=[plan_item_id]
+    )
+
     maquinaria = db.relationship(
         'Maquinaria',
         lazy='joined'
     )
 
     def to_dict(self):
+
+        # El plan puede estar asociado por maquinaria_plan_item
+        # (flujo normal) o directamente por plan_item_id (datos
+        # históricos / importados). Siempre mostramos el catálogo.
+        plan_item = (
+            self.maquinaria_plan_item.plan_item
+            if self.maquinaria_plan_item
+            and self.maquinaria_plan_item.plan_item
+            else self.plan_item
+        )
 
         return {
             "id": self.id,
@@ -1682,7 +1731,7 @@ class MaquinariaMantenimiento(db.Model):
 
             "horas": self.horas,
 
-            "tipo": self.tipo,
+            "tipo": codigo_tipo_mantenimiento(self.tipo),
 
             "proveedor": self.proveedor,
 
@@ -1699,9 +1748,7 @@ class MaquinariaMantenimiento(db.Model):
             "completado": self.completado,
             "horas_programadas": self.horas_programadas,
             "plan_item": (
-                self.maquinaria_plan_item.plan_item.to_dict()
-                if self.maquinaria_plan_item and self.maquinaria_plan_item.plan_item
-                else None
+                plan_item.to_dict() if plan_item else None
             ),
             "maquinaria": (
                 {

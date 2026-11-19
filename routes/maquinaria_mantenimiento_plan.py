@@ -4,7 +4,8 @@ from models import (
     Maquinaria,
     MaquinariaPlanItem,
     PlanItem,
-    MaquinariaMantenimiento
+    MaquinariaMantenimiento,
+    codigo_tipo_mantenimiento
 )
 
 from datetime import date
@@ -260,10 +261,13 @@ def completar(id):
         # Horas en las que estaba programado
         horas_programadas=horas_programadas,
 
-        tipo=(
-            mpi.plan_item.tipo
-            if mpi.plan_item
-            else None
+        tipo=codigo_tipo_mantenimiento(
+            data.get('tipo')
+            or (
+                mpi.plan_item.tipo_mantenimiento
+                if mpi.plan_item
+                else None
+            )
         ),
 
         completado=True

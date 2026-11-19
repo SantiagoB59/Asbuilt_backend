@@ -9,7 +9,8 @@ from models import (
     Maquinaria,
     PlanItem,
     VehiculoPlanItem,
-    MaquinariaPlanItem
+    MaquinariaPlanItem,
+    codigo_tipo_mantenimiento
 )
 from models import Alerta
 from datetime import date
@@ -141,7 +142,7 @@ def listar():
 
     if tipo:
         query = query.filter(
-            Mantenimiento.tipo == tipo
+            Mantenimiento.tipo == codigo_tipo_mantenimiento(tipo)
         )
 
     if desde:
@@ -183,12 +184,13 @@ def crear():
         'km',
         type=int
     )
-    if km is None:
-        km = vehiculo.km_estimado
 
     fecha = request.form.get('fecha')
 
-    tipo = request.form.get('tipo')
+    # Guardamos siempre el código corto (PR / CR / I / C)
+    tipo = codigo_tipo_mantenimiento(
+        request.form.get('tipo')
+    )
 
     proveedor = request.form.get('proveedor')
 
@@ -218,18 +220,21 @@ def crear():
             "error": "vehiculo_plan_item_id requerido"
         }), 400
 
-    if km is None:
-
-        return jsonify({
-            "error": "km requerido"
-        }), 400
-
     # =====================================
     # VEHICULO
     # =====================================
     vehiculo = Vehiculo.query.get_or_404(
         vehiculo_id
     )
+
+    # Si el front no envió el km, tomamos el estimado del vehículo.
+    if km is None:
+        km = vehiculo.km_estimado
+
+    if km is None:
+        return jsonify({
+            "error": "km requerido"
+        }), 400
 
     # =====================================
     # VALIDAR PLAN VEHICULO
@@ -475,6 +480,29 @@ def plan_items():
 # MAQUINARIA MANTENIMIENTO
 # =========================
 
+@mantenimientos_bp.route('/maquinarias-simple', methods=['GET'])
+def maquinarias_simple():
+
+    maquinarias = (
+        Maquinaria.query
+        .filter_by(activo=True)
+        .order_by(Maquinaria.codigo)
+        .all()
+    )
+
+    return jsonify([
+        {
+            "id": m.id,
+            "codigo": m.codigo,
+            "marca": m.marca,
+            "modelo": m.modelo,
+            "linea": m.linea,
+            "horometro_actual": m.horometro_actual
+        }
+        for m in maquinarias
+    ])
+
+
 @mantenimientos_bp.route(
     '/maquinaria-plan/<int:maquinaria_id>',
     methods=['GET']
@@ -500,7 +528,7 @@ def plan_por_maquinaria(maquinaria_id):
             MaquinariaMantenimiento.query
             .filter_by(
                 maquinaria_id=maquinaria_id,
-                plan_item_id=item.plan_item_id
+                maquinaria_plan_item_id=item.id
             )
             .order_by(
                 MaquinariaMantenimiento.fecha.desc()
@@ -514,7 +542,10 @@ def plan_por_maquinaria(maquinaria_id):
                 "codigo": maquinaria.codigo
             },
             "maquinaria_plan_item_id": item.id,
-            "plan_item": item.plan_item.to_dict(),
+            "plan_item": (
+                item.plan_item.to_dict()
+                if item.plan_item else None
+            ),
             "ultimo_mantenimiento": (
                 ultimo.to_dict()
                 if ultimo else None
@@ -763,11 +794,11 @@ def crear_maquinaria():
         # Horas programadas de la ocurrencia
         horas_programadas=horas_programadas,
 
-        tipo=(
+        tipo=codigo_tipo_mantenimiento(
             tipo
             if tipo
             else (
-                mpi.plan_item.tipo
+                mpi.plan_item.tipo_mantenimiento
                 if mpi.plan_item
                 else None
             )
@@ -921,8 +952,8 @@ def listar_maquinaria():
 
     if tipo:
 
-        query = query.filter_by(
-            tipo=tipo
+        query = query.filter(
+            MaquinariaMantenimiento.tipo == codigo_tipo_mantenimiento(tipo)
         )
 
     if desde:

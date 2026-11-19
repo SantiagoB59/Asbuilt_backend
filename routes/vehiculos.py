@@ -22,6 +22,14 @@ UPLOAD_FOLDER = 'uploads/vehiculos'
 
 DOCUMENTOS_FOLDER = 'uploads/vehiculos/documentos'
 
+# La tarjeta de operación se retiró del catálogo y de la interfaz.
+DOCUMENTOS_EXCLUIDOS_IDS = {5}
+
+
+def documento_permitido(documento_tipo_id):
+    return documento_tipo_id not in DOCUMENTOS_EXCLUIDOS_IDS
+
+
 ALLOWED_IMAGE_EXTENSIONS = {
     'png',
     'jpg',
@@ -128,10 +136,15 @@ def listar():
         except ValueError:
             pass  # evita crash si llega algo inválido
 
-    # búsqueda por placa (case-insensitive recomendado)
+    # búsqueda por placa, marca, línea o conductor
     if search:
         search = search.strip()
-        query = query.filter(Vehiculo.placa.ilike(f"%{search}%"))
+        query = query.filter(or_(
+            Vehiculo.placa.ilike(f"%{search}%"),
+            Vehiculo.marca.ilike(f"%{search}%"),
+            Vehiculo.linea.ilike(f"%{search}%"),
+            Vehiculo.conductor.ilike(f"%{search}%")
+        ))
 
     vehiculos = query.all()
 
@@ -148,9 +161,16 @@ def obtener(placa):
     # ==========================
     # DOCUMENTOS
     # ==========================
-    documentos = VehiculoDocumento.query.filter_by(
-        vehiculo_id=v.id
-    ).all()
+    documentos = (
+        VehiculoDocumento.query
+        .filter(
+            VehiculoDocumento.vehiculo_id == v.id,
+            VehiculoDocumento.documento_tipo_id.notin_(
+                DOCUMENTOS_EXCLUIDOS_IDS
+            )
+        )
+        .all()
+    )
 
     documentos_data = [
         {
@@ -295,6 +315,9 @@ def crear():
     # ==========================
     for doc in documentos:
         if not isinstance(doc, dict):
+            continue
+
+        if not documento_permitido(doc.get('documento_tipo_id')):
             continue
 
         db.session.add(VehiculoDocumento(
@@ -459,6 +482,9 @@ def actualizar(placa):
 
     for doc in documentos:
         if not isinstance(doc, dict):
+            continue
+
+        if not documento_permitido(doc.get('documento_tipo_id')):
             continue
 
         db.session.add(VehiculoDocumento(
@@ -662,7 +688,9 @@ def campos_por_tipo(tipo_id):
 @vehiculos_bp.route('/documentos_tipo', methods=['GET'])
 def documentos_tipo():
 
-    documentos = DocumentoTipo.query.all()
+    documentos = DocumentoTipo.query.filter(
+        DocumentoTipo.id.notin_(DOCUMENTOS_EXCLUIDOS_IDS)
+    ).all()
 
     return jsonify([
         {
@@ -687,7 +715,9 @@ def documentos():
         return jsonify([])
 
     # ✅ Si es automotor → trae documentos globales
-    documentos = DocumentoTipo.query.all()
+    documentos = DocumentoTipo.query.filter(
+        DocumentoTipo.id.notin_(DOCUMENTOS_EXCLUIDOS_IDS)
+    ).all()
 
     return jsonify([
         {
@@ -704,9 +734,16 @@ def obtener_por_placa(placa):
     # ==========================
     # 📄 DOCUMENTOS
     # ==========================
-    documentos = VehiculoDocumento.query.filter_by(
-        vehiculo_id=v.id
-    ).all()
+    documentos = (
+        VehiculoDocumento.query
+        .filter(
+            VehiculoDocumento.vehiculo_id == v.id,
+            VehiculoDocumento.documento_tipo_id.notin_(
+                DOCUMENTOS_EXCLUIDOS_IDS
+            )
+        )
+        .all()
+    )
 
     documentos_data = [
         {
