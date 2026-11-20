@@ -1,10 +1,27 @@
+import os
+
 from flask import jsonify
+
+from sqlalchemy import bindparam, or_, text
 
 from werkzeug.security import generate_password_hash
 
 from extensions import db
 
-from models import Usuario, Rol, TipoOperador, TipoOperadorDocumento, UsuarioDocumento
+from models import (
+    ActivoOperador,
+    Alerta,
+    AnomaliaFoto,
+    ControlDiario,
+    Inspeccion,
+    InspeccionAnomalia,
+    Rol,
+    Tanqueo,
+    TipoOperador,
+    TipoOperadorDocumento,
+    Usuario,
+    UsuarioDocumento,
+)
 
 
 class UsuarioService:
@@ -474,11 +491,11 @@ class UsuarioService:
         )
 
     # =====================================================
-    # ELIMINAR
+    # DESACTIVAR (NO BORRA EL REGISTRO)
     # =====================================================
 
     @staticmethod
-    def eliminar(usuario_id):
+    def desactivar(usuario_id):
 
         usuario = Usuario.query.get(usuario_id)
 
@@ -493,3 +510,282 @@ class UsuarioService:
         return jsonify(
             {"success": True, "message": "Usuario desactivado correctamente"}
         )
+
+    # =====================================================
+    # COMPATIBILIDAD: ELIMINAR ANTES DESACTIVABA
+    # =====================================================
+
+    @staticmethod
+    def eliminar(usuario_id):
+
+        return UsuarioService.desactivar(usuario_id)
+
+    # =====================================================
+    # AYUDAS PARA ELIMINACIÓN DEFINITIVA
+    # =====================================================
+
+    @staticmethod
+    def _es_operador(usuario):
+
+        nombre_rol = (
+            usuario.rol.nombre
+            if usuario.rol
+            else ""
+        )
+
+        return str(nombre_rol).lower() == "operador"
+
+    @staticmethod
+    def _eliminar_archivo(ruta_relativa):
+
+        if not ruta_relativa:
+            return
+
+        limpia = str(ruta_relativa).replace("\\", "/").lstrip("/")
+
+        if limpia.startswith("uploads/"):
+            ruta = limpia
+        else:
+            ruta = os.path.join(
+                "uploads",
+                *limpia.split("/")
+            )
+
+        try:
+            if os.path.exists(ruta):
+                os.remove(ruta)
+        except OSError:
+            # La limpieza de archivos no debe bloquear la eliminación.
+            pass
+
+    @staticmethod
+    def _ids_anomalias(usuario_id, ids_inspecciones):
+
+        return [
+            fila[0]
+            for fila in db.session.query(InspeccionAnomalia.id)
+            .filter(
+                or_(
+                    InspeccionAnomalia.usuario_id == usuario_id,
+                    InspeccionAnomalia.inspeccion_id.in_(ids_inspecciones),
+                )
+            )
+            .all()
+        ]
+
+    # =====================================================
+    # IMPACTO DE LA ELIMINACIÓN DEFINITIVA
+    # =====================================================
+
+    @staticmethod
+    def impacto_eliminacion(usuario_id):
+
+        usuario = Usuario.query.get(usuario_id)
+
+        if not usuario:
+
+            return jsonify({"success": False, "message": "Usuario no encontrado"}), 404
+
+        if not UsuarioService._es_operador(usuario):
+
+            return jsonify({
+                "success": False,
+                "message": "La eliminación definitiva solo está disponible para operadores."
+            }), 400
+
+        ids_inspecciones = [
+            fila[0]
+            for fila in db.session.query(Inspeccion.id)
+            .filter(Inspeccion.usuario_id == usuario_id)
+            .all()
+        ]
+
+        ids_anomalias = UsuarioService._ids_anomalias(
+            usuario_id,
+            ids_inspecciones
+        )
+
+        data = {
+            "usuario": {
+                "id": usuario.id,
+                "nombre": usuario.nombre,
+                "username": usuario.username,
+            },
+            "eliminar": {
+                "documentos": UsuarioDocumento.query
+                    .filter_by(usuario_id=usuario_id).count(),
+                "asignaciones": ActivoOperador.query
+                    .filter_by(usuario_id=usuario_id).count(),
+                "inspecciones": len(ids_inspecciones),
+                "anomalias": len(ids_anomalias),
+                "controles_diarios": ControlDiario.query
+                    .filter_by(usuario_id=usuario_id).count(),
+                "tanqueos": Tanqueo.query
+                    .filter_by(usuario_id=usuario_id).count(),
+            },
+            "desvincular": {
+                "alertas": Alerta.query
+                    .filter_by(usuario_id=usuario_id).count(),
+                "revisiones_inspeccion": Inspeccion.query
+                    .filter_by(responsable_revision=usuario_id).count(),
+                "validaciones_control": ControlDiario.query
+                    .filter_by(validado_por=usuario_id).count(),
+                "validaciones_tanqueo": Tanqueo.query
+                    .filter_by(validado_por=usuario_id).count(),
+            },
+        }
+
+        return jsonify({"success": True, "data": data})
+
+    # =====================================================
+    # ELIMINAR DEFINITIVAMENTE
+    # =====================================================
+
+    @staticmethod
+    def eliminar_definitivamente(usuario_id):
+
+        usuario = Usuario.query.get(usuario_id)
+
+        if not usuario:
+
+            return jsonify({"success": False, "message": "Usuario no encontrado"}), 404
+
+        if not UsuarioService._es_operador(usuario):
+
+            return jsonify({
+                "success": False,
+                "message": "La eliminación definitiva solo está disponible para operadores."
+            }), 400
+
+        try:
+
+            # ---------------------------------------------
+            # 1) DESVINCULAR REFERENCIAS OPCIONALES
+            # ---------------------------------------------
+
+            Alerta.query.filter_by(usuario_id=usuario_id).update(
+                {Alerta.usuario_id: None},
+                synchronize_session=False
+            )
+
+            Inspeccion.query.filter_by(responsable_revision=usuario_id).update(
+                {Inspeccion.responsable_revision: None},
+                synchronize_session=False
+            )
+
+            ControlDiario.query.filter_by(validado_por=usuario_id).update(
+                {ControlDiario.validado_por: None},
+                synchronize_session=False
+            )
+
+            Tanqueo.query.filter_by(validado_por=usuario_id).update(
+                {Tanqueo.validado_por: None},
+                synchronize_session=False
+            )
+
+            # ---------------------------------------------
+            # 2) IDENTIFICAR INSPECCIONES Y ANOMALÍAS
+            # ---------------------------------------------
+
+            ids_inspecciones = [
+                fila[0]
+                for fila in db.session.query(Inspeccion.id)
+                .filter(Inspeccion.usuario_id == usuario_id)
+                .all()
+            ]
+
+            ids_anomalias = UsuarioService._ids_anomalias(
+                usuario_id,
+                ids_inspecciones
+            )
+
+            # ---------------------------------------------
+            # 3) ARCHIVOS DE SOPORTE (SE BORRAN TRAS COMMIT)
+            # ---------------------------------------------
+
+            archivos_a_eliminar = []
+
+            for tanqueo in Tanqueo.query.filter_by(usuario_id=usuario_id).all():
+                if tanqueo.archivo_path:
+                    archivos_a_eliminar.append(tanqueo.archivo_path)
+
+            for control in ControlDiario.query.filter_by(usuario_id=usuario_id).all():
+                if control.archivo_path:
+                    archivos_a_eliminar.append(control.archivo_path)
+
+            # ---------------------------------------------
+            # 4) DEPENDENCIAS DE INSPECCIONES
+            # ---------------------------------------------
+
+            if ids_anomalias:
+
+                AnomaliaFoto.query.filter(
+                    AnomaliaFoto.anomalia_id.in_(ids_anomalias)
+                ).delete(synchronize_session=False)
+
+                InspeccionAnomalia.query.filter(
+                    InspeccionAnomalia.id.in_(ids_anomalias)
+                ).delete(synchronize_session=False)
+
+            if ids_inspecciones:
+
+                db.session.execute(
+                    text(
+                        "DELETE FROM inspeccion_reportes "
+                        "WHERE inspeccion_id IN :ids"
+                    ).bindparams(bindparam("ids", expanding=True)),
+                    {"ids": ids_inspecciones}
+                )
+
+            # ---------------------------------------------
+            # 5) REGISTROS PROPIOS DEL OPERADOR
+            # ---------------------------------------------
+
+            UsuarioDocumento.query.filter_by(
+                usuario_id=usuario_id
+            ).delete(synchronize_session=False)
+
+            ActivoOperador.query.filter_by(
+                usuario_id=usuario_id
+            ).delete(synchronize_session=False)
+
+            ControlDiario.query.filter_by(
+                usuario_id=usuario_id
+            ).delete(synchronize_session=False)
+
+            Tanqueo.query.filter_by(
+                usuario_id=usuario_id
+            ).delete(synchronize_session=False)
+
+            for inspeccion in Inspeccion.query.filter_by(
+                usuario_id=usuario_id
+            ).all():
+                db.session.delete(inspeccion)
+
+            # ---------------------------------------------
+            # 6) USUARIO
+            # ---------------------------------------------
+
+            db.session.delete(usuario)
+
+            db.session.commit()
+
+            for archivo in archivos_a_eliminar:
+                UsuarioService._eliminar_archivo(archivo)
+
+        except Exception as exc:
+
+            db.session.rollback()
+
+            return jsonify({
+                "success": False,
+                "message": (
+                    "No fue posible eliminar el operador: "
+                    f"{exc}"
+                )
+            }), 500
+
+        return jsonify({
+            "success": True,
+            "message": "Operador eliminado definitivamente."
+        })

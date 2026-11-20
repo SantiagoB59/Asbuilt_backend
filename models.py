@@ -3704,3 +3704,291 @@ class ControlDiario(db.Model):
                 else None
             )
         }
+
+
+# =====================================================
+# TANQUEOS / COMBUSTIBLE
+# =====================================================
+class Tanqueo(db.Model):
+    """
+    Registro de combustible reportado por un operador.
+
+    Un tanqueo pertenece siempre a un activo:
+    - vehiculo_id  -> se mide en KM
+    - maquinaria_id -> se mide en HORAS
+
+    La lectura (km_actual / horometro_actual) capturada en cada
+    tanqueo permite calcular rendimiento real:
+        distancia u horas entre tanqueos / galones del tanqueo siguiente
+    """
+
+    __tablename__ = "tanqueos"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # ========================================================
+    # FECHA Y USUARIO QUE REPORTA
+    # ========================================================
+    fecha = db.Column(
+        db.Date,
+        nullable=False,
+        index=True
+    )
+
+    usuario_id = db.Column(
+        db.Integer,
+        db.ForeignKey("usuarios.id"),
+        nullable=False,
+        index=True
+    )
+
+    # ========================================================
+    # ACTIVO (SOLO UNO DE LOS DOS DEBE EXISTIR)
+    # ========================================================
+    vehiculo_id = db.Column(
+        db.Integer,
+        db.ForeignKey("vehiculos.id"),
+        nullable=True,
+        index=True
+    )
+
+    maquinaria_id = db.Column(
+        db.Integer,
+        db.ForeignKey("maquinaria.id"),
+        nullable=True,
+        index=True
+    )
+
+    # ========================================================
+    # COMBUSTIBLE
+    # ========================================================
+    tipo_combustible = db.Column(
+        db.String(30),
+        default="DIESEL"
+    )
+
+    galones = db.Column(
+        db.Numeric(10, 2),
+        nullable=False
+    )
+
+    precio_galon = db.Column(
+        db.Numeric(10, 2),
+        nullable=True
+    )
+
+    valor_total = db.Column(
+        db.Numeric(12, 2),
+        nullable=True
+    )
+
+    estacion = db.Column(db.String(150))
+    numero_factura = db.Column(db.String(50))
+
+    # ========================================================
+    # LECTURA DEL ACTIVO AL MOMENTO DE TANQUEAR
+    # ========================================================
+    km_actual = db.Column(db.Numeric(12, 2))
+    horometro_actual = db.Column(db.Numeric(12, 2))
+
+    # ========================================================
+    # SOPORTE / IMAGEN
+    # ========================================================
+    archivo_path = db.Column(
+        db.String(500),
+        nullable=False
+    )
+
+    archivo_nombre = db.Column(
+        db.String(255),
+        nullable=False
+    )
+
+    archivo_tipo = db.Column(db.String(50))
+
+    # ========================================================
+    # CONTROL
+    # ========================================================
+    estado = db.Column(
+        db.String(20),
+        nullable=False,
+        default="REGISTRADO",
+        index=True
+    )
+
+    observaciones = db.Column(db.Text)
+
+    validado_por = db.Column(
+        db.Integer,
+        db.ForeignKey("usuarios.id"),
+        nullable=True
+    )
+
+    validado_at = db.Column(db.DateTime)
+    observacion_validacion = db.Column(db.Text)
+
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            ZoneInfo("America/Bogota")
+        ),
+        nullable=False
+    )
+
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            ZoneInfo("America/Bogota")
+        ),
+        onupdate=lambda: datetime.now(
+            ZoneInfo("America/Bogota")
+        )
+    )
+
+    # ========================================================
+    # RELACIONES
+    # ========================================================
+    usuario = db.relationship(
+        "Usuario",
+        foreign_keys=[usuario_id],
+        backref="tanqueos_reportados"
+    )
+
+    vehiculo = db.relationship(
+        "Vehiculo",
+        backref="tanqueos"
+    )
+
+    maquinaria = db.relationship(
+        "Maquinaria",
+        backref="tanqueos"
+    )
+
+    validador = db.relationship(
+        "Usuario",
+        foreign_keys=[validado_por]
+    )
+
+    # ========================================================
+    # SERIALIZACIÓN
+    # ========================================================
+    def to_dict(self):
+
+        if self.vehiculo:
+            tipo_activo = "VEHICULO"
+            activo_id = self.vehiculo.id
+            activo_nombre = self.vehiculo.placa
+            unidad = "KM"
+            lectura = self.km_actual
+
+        elif self.maquinaria:
+            tipo_activo = "MAQUINARIA"
+            activo_id = self.maquinaria.id
+            activo_nombre = self.maquinaria.codigo
+            unidad = "HORAS"
+            lectura = self.horometro_actual
+
+        else:
+            tipo_activo = None
+            activo_id = None
+            activo_nombre = None
+            unidad = None
+            lectura = None
+
+        return {
+            "id": self.id,
+
+            "fecha": (
+                self.fecha.isoformat()
+                if self.fecha
+                else None
+            ),
+
+            "usuario_id": self.usuario_id,
+            "usuario": (
+                self.usuario.nombre
+                if self.usuario
+                else None
+            ),
+
+            "vehiculo_id": self.vehiculo_id,
+            "maquinaria_id": self.maquinaria_id,
+
+            "tipo_activo": tipo_activo,
+            "activo_id": activo_id,
+            "activo_nombre": activo_nombre,
+            "unidad": unidad,
+            "lectura": (
+                float(lectura)
+                if lectura is not None
+                else None
+            ),
+
+            "tipo_combustible": self.tipo_combustible,
+            "galones": (
+                float(self.galones)
+                if self.galones is not None
+                else None
+            ),
+            "precio_galon": (
+                float(self.precio_galon)
+                if self.precio_galon is not None
+                else None
+            ),
+            "valor_total": (
+                float(self.valor_total)
+                if self.valor_total is not None
+                else None
+            ),
+
+            "estacion": self.estacion,
+            "numero_factura": self.numero_factura,
+
+            "km_actual": (
+                float(self.km_actual)
+                if self.km_actual is not None
+                else None
+            ),
+            "horometro_actual": (
+                float(self.horometro_actual)
+                if self.horometro_actual is not None
+                else None
+            ),
+
+            "archivo_path": self.archivo_path,
+            "archivo_nombre": self.archivo_nombre,
+            "archivo_tipo": self.archivo_tipo,
+            "archivo_url": (
+                f"/uploads/{self.archivo_path}"
+                if self.archivo_path
+                else None
+            ),
+
+            "estado": self.estado,
+            "observaciones": self.observaciones,
+
+            "validado_por": self.validado_por,
+            "validador": (
+                self.validador.nombre
+                if self.validador
+                else None
+            ),
+            "validado_at": (
+                self.validado_at.isoformat()
+                if self.validado_at
+                else None
+            ),
+            "observacion_validacion":
+                self.observacion_validacion,
+
+            "created_at": (
+                self.created_at.isoformat()
+                if self.created_at
+                else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat()
+                if self.updated_at
+                else None
+            )
+        }

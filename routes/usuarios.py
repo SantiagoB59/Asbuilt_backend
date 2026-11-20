@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from services.usuario_services import UsuarioService
 
@@ -131,7 +131,64 @@ def actualizar(usuario_id):
 
 
 # =====================================================
-# ELIMINAR (DESACTIVAR)
+# DESACTIVAR (MANTIENE EL REGISTRO)
+# =====================================================
+
+@usuarios_bp.route(
+    "/<int:usuario_id>/desactivar",
+    methods=["PUT"]
+)
+@jwt_required()
+def desactivar(usuario_id):
+
+    return UsuarioService.desactivar(
+        usuario_id
+    )
+
+
+# =====================================================
+# IMPACTO DE ELIMINACIÓN DEFINITIVA
+# =====================================================
+
+@usuarios_bp.route(
+    "/<int:usuario_id>/impacto-eliminacion",
+    methods=["GET"]
+)
+@jwt_required()
+def impacto_eliminacion(usuario_id):
+
+    return UsuarioService.impacto_eliminacion(
+        usuario_id
+    )
+
+
+# =====================================================
+# ELIMINAR DEFINITIVAMENTE (SOLO OPERADORES)
+# =====================================================
+
+@usuarios_bp.route(
+    "/<int:usuario_id>/eliminar",
+    methods=["DELETE"]
+)
+@jwt_required()
+def eliminar_definitivamente(usuario_id):
+
+    identidad = get_jwt_identity()
+
+    if identidad is not None and str(identidad) == str(usuario_id):
+
+        return jsonify({
+            "success": False,
+            "message": "No puede eliminar su propio usuario."
+        }), 400
+
+    return UsuarioService.eliminar_definitivamente(
+        usuario_id
+    )
+
+
+# =====================================================
+# COMPATIBILIDAD: DELETE ANTES DESACTIVABA
 # =====================================================
 
 @usuarios_bp.route(
@@ -141,6 +198,6 @@ def actualizar(usuario_id):
 @jwt_required()
 def eliminar(usuario_id):
 
-    return UsuarioService.eliminar(
+    return UsuarioService.desactivar(
         usuario_id
     )
