@@ -153,6 +153,7 @@ def obtener_activos_operador(usuario_id):
                 ),
                 "marca": vehiculo.marca,
                 "modelo": vehiculo.modelo,
+                "km_actual": vehiculo.km_actual,
                 "estado": vehiculo.estado
             })
 

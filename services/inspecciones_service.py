@@ -104,34 +104,42 @@ class InspeccionService:
     # -----------------------------------------------------
 
     @staticmethod
-    def existe_inspeccion_hoy(usuario_id, plantilla_id):
+    def existe_inspeccion_hoy(
+        usuario_id,
+        plantilla_id,
+        vehiculo_id=None,
+        maquinaria_id=None
+    ):
 
         hoy = InspeccionService.obtener_fecha_hoy()
 
-        return (
-            Inspeccion.query.filter(
-                Inspeccion.usuario_id == usuario_id,
-                Inspeccion.plantilla_id == plantilla_id,
-                db.func.date(Inspeccion.hora_inicio) == hoy,
-                Inspeccion.estado != "ANULADA",
-            )
-            .order_by(Inspeccion.id.desc())
-            .first()
+        query = Inspeccion.query.filter(
+            Inspeccion.usuario_id == usuario_id,
+            Inspeccion.plantilla_id == plantilla_id,
+            db.func.date(Inspeccion.hora_inicio) == hoy,
+            Inspeccion.estado != "ANULADA",
         )
 
+        # Cuando el usuario elige un activo explícitamente,
+        # la inspección del día es por activo y no solo por plantilla.
+        if vehiculo_id is not None:
+            query = query.filter(
+                Inspeccion.vehiculo_id == vehiculo_id
+            )
+
+        if maquinaria_id is not None:
+            query = query.filter(
+                Inspeccion.maquinaria_id == maquinaria_id
+            )
+
+        return query.order_by(Inspeccion.id.desc()).first()
+
     # =====================================================
-    # OBTENER ACTIVO ASIGNADO AL OPERADOR
+    # OBTENER ACTIVOS ASIGNADOS
     # =====================================================
 
     @staticmethod
-    def obtener_activo_operador(usuario_id):
-
-        asignacion = ActivoOperador.query.filter_by(
-            usuario_id=usuario_id, activo=True
-        ).first()
-
-        if not asignacion:
-            raise Exception("El operador no tiene un vehículo o maquinaria asignada.")
+    def _armar_activo(asignacion):
 
         # -------------------------------
         # VEHICULO
@@ -172,6 +180,114 @@ class InspeccionService:
             }
 
         raise Exception("La asignación del operador no es válida.")
+
+    @staticmethod
+    def obtener_activo_operador(usuario_id):
+        """
+        Activo por defecto del operador. Se mantiene igual para
+        no modificar el flujo actual de los operadores.
+        """
+
+        asignacion = ActivoOperador.query.filter_by(
+            usuario_id=usuario_id, activo=True
+        ).first()
+
+        if not asignacion:
+            raise Exception("El operador no tiene un vehículo o maquinaria asignada.")
+
+        return InspeccionService._armar_activo(asignacion)
+
+    @staticmethod
+    def obtener_activos_usuario(usuario_id):
+        """
+        Devuelve todos los activos asignados al usuario.
+        Los roles administrativos pueden tener varios y escoger
+        cuál inspeccionan.
+        """
+
+        asignaciones = (
+            ActivoOperador.query
+            .filter_by(usuario_id=usuario_id, activo=True)
+            .all()
+        )
+
+        activos = []
+
+        for asignacion in asignaciones:
+
+            try:
+                activo = InspeccionService._armar_activo(asignacion)
+            except Exception:
+                continue
+
+            objeto = activo["activo"]
+
+            if activo["tipo"] == "VEHICULO":
+                tipo_nombre = (
+                    objeto.tipo_vehiculo.nombre
+                    if objeto.tipo_vehiculo
+                    else None
+                )
+                placa = objeto.placa
+                codigo = None
+            else:
+                tipo_nombre = (
+                    objeto.tipo_maquinaria.nombre
+                    if objeto.tipo_maquinaria
+                    else None
+                )
+                placa = None
+                codigo = objeto.codigo
+
+            activos.append({
+                "tipo": activo["tipo"],
+                "id": activo["id"],
+                "nombre": activo["nombre"],
+                "tipo_id": activo["tipo_id"],
+                "placa": placa,
+                "codigo": codigo,
+                "marca": objeto.marca,
+                "modelo": objeto.modelo,
+                "tipo_nombre": tipo_nombre,
+                "lectura_actual": (
+                    InspeccionService.obtener_lectura_actual_activo(activo)
+                ),
+            })
+
+        return activos
+
+    @staticmethod
+    def obtener_activo_usuario(usuario_id, tipo_activo, activo_id):
+        """
+        Obtiene el activo elegido validando que esté asignado
+        al usuario autenticado.
+        """
+
+        if tipo_activo not in ("VEHICULO", "MAQUINARIA"):
+            raise Exception("El tipo de activo no es válido.")
+
+        try:
+            activo_id = int(activo_id)
+        except (TypeError, ValueError):
+            raise Exception("El activo seleccionado no es válido.")
+
+        query = ActivoOperador.query.filter_by(
+            usuario_id=usuario_id, activo=True
+        )
+
+        if tipo_activo == "VEHICULO":
+            query = query.filter_by(vehiculo_id=activo_id)
+        else:
+            query = query.filter_by(maquinaria_id=activo_id)
+
+        asignacion = query.first()
+
+        if not asignacion:
+            raise Exception(
+                "El activo seleccionado no está asignado a tu usuario."
+            )
+
+        return InspeccionService._armar_activo(asignacion)
 
     # =====================================================
     # OBTENER PLANTILLA
@@ -652,18 +768,49 @@ class InspeccionService:
     # =====================================================
 
     @staticmethod
-    def iniciar_inspeccion(usuario_id):
+    def iniciar_inspeccion(
+        usuario_id,
+        tipo_activo=None,
+        activo_id=None
+    ):
 
-        # Obtener el activo asignado
-        activo = InspeccionService.obtener_activo_operador(usuario_id)
+        activo_explicito = (
+            tipo_activo is not None and activo_id is not None
+        )
+
+        # Si el usuario eligió un activo, se valida que esté asignado.
+        # Si no, se conserva el activo por defecto del operador.
+        if activo_explicito:
+            activo = InspeccionService.obtener_activo_usuario(
+                usuario_id, tipo_activo, activo_id
+            )
+        else:
+            activo = InspeccionService.obtener_activo_operador(usuario_id)
 
         # Obtener plantilla
         plantilla = InspeccionService.obtener_plantilla(
             activo["tipo"], activo["tipo_id"]
         )
 
+        vehiculo_id = (
+            activo["id"] if activo["tipo"] == "VEHICULO" else None
+        )
+        maquinaria_id = (
+            activo["id"] if activo["tipo"] == "MAQUINARIA" else None
+        )
+
         # ¿Ya existe una inspección hoy?
-        inspeccion = InspeccionService.existe_inspeccion_hoy(usuario_id, plantilla.id)
+        if activo_explicito:
+            inspeccion = InspeccionService.existe_inspeccion_hoy(
+                usuario_id,
+                plantilla.id,
+                vehiculo_id=vehiculo_id,
+                maquinaria_id=maquinaria_id
+            )
+        else:
+            inspeccion = InspeccionService.existe_inspeccion_hoy(
+                usuario_id, plantilla.id
+            )
 
         if inspeccion:
             return inspeccion
@@ -671,8 +818,8 @@ class InspeccionService:
         inspeccion = Inspeccion(
             plantilla_id=plantilla.id,
             usuario_id=usuario_id,
-            vehiculo_id=activo["id"] if activo["tipo"] == "VEHICULO" else None,
-            maquinaria_id=activo["id"] if activo["tipo"] == "MAQUINARIA" else None,
+            vehiculo_id=vehiculo_id,
+            maquinaria_id=maquinaria_id,
             hora_inicio=InspeccionService.obtener_fecha_actual(),
             estado="EN_PROCESO",
         )

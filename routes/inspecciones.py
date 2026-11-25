@@ -43,6 +43,40 @@ inspecciones_bp = Blueprint(
 
 import traceback
 
+
+@inspecciones_bp.route("/mis-activos", methods=["GET"])
+@jwt_required()
+def mis_activos_inspeccion():
+
+    """
+    Activos que el usuario puede inspeccionar.
+    Los roles administrativos pueden tener varios asignados.
+    """
+
+    try:
+
+        usuario = obtener_usuario_actual()
+        usuario_id = usuario["id"]
+
+        activos = InspeccionService.obtener_activos_usuario(
+            usuario_id
+        )
+
+        return jsonify({
+            "success": True,
+            "data": activos
+        })
+
+    except Exception as e:
+
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
+
 @inspecciones_bp.route("/mi-plantilla", methods=["GET"])
 @jwt_required()
 def mi_plantilla():
@@ -53,10 +87,22 @@ def mi_plantilla():
         usuario_id = usuario["id"]
 
         # =====================================================
-        # ACTIVO ASIGNADO AL OPERADOR
+        # ACTIVO ELEGIDO (ADMINISTRADORES) O ASIGNADO (OPERADOR)
         # =====================================================
 
-        activo = InspeccionService.obtener_activo_operador(
+        tipo_activo = request.args.get("tipo_activo")
+        activo_id = request.args.get("activo_id")
+
+        if tipo_activo and activo_id:
+            activo = InspeccionService.obtener_activo_usuario(
+                usuario_id, tipo_activo, activo_id
+            )
+        else:
+            activo = InspeccionService.obtener_activo_operador(
+                usuario_id
+            )
+
+        activos_disponibles = InspeccionService.obtener_activos_usuario(
             usuario_id
         )
 
@@ -240,7 +286,13 @@ def mi_plantilla():
             # PLANTILLA
             # -------------------------------------------------
 
-            "plantilla": plantilla.to_dict()
+            "plantilla": plantilla.to_dict(),
+
+            # -------------------------------------------------
+            # ACTIVOS QUE PUEDE ELEGIR EL USUARIO
+            # -------------------------------------------------
+
+            "activos_disponibles": activos_disponibles
 
         })
 
@@ -262,8 +314,12 @@ def iniciar_inspeccion():
         usuario = obtener_usuario_actual()
         usuario_id = usuario["id"]
 
+        data = request.get_json(silent=True) or {}
+
         inspeccion = InspeccionService.iniciar_inspeccion(
-            usuario_id
+            usuario_id,
+            tipo_activo=data.get("tipo_activo"),
+            activo_id=data.get("activo_id")
         )
 
         return jsonify({

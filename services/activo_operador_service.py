@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from sqlalchemy import func
+
 from extensions import db
 from models import (
     ActivoOperador,
@@ -13,6 +15,28 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 datetime.now(ZoneInfo("America/Bogota"))
+
+# Roles que pueden usar varios vehículos de la empresa a la vez.
+# Los operadores conservan la regla de un único activo asignado.
+ROLES_ADMIN = ("admin", "administrador", "supervisor")
+ROLES_ASIGNABLES = ("operador",) + ROLES_ADMIN
+
+
+def _rol_de(usuario):
+    """Devuelve el nombre del rol en minúsculas."""
+
+    if not usuario or not usuario.rol:
+        return ""
+
+    return (usuario.rol.nombre or "").lower().strip()
+
+
+def _es_administrador(usuario):
+    """Indica si el usuario pertenece a un rol administrativo."""
+
+    return _rol_de(usuario) in ROLES_ADMIN
+
+
 class ActivoOperadorService:
 
     # ==================================================
@@ -95,28 +119,40 @@ class ActivoOperadorService:
             .join(Rol)
             .filter(
                 Usuario.activo == True,
-                Rol.nombre == "operador",
-                ~Usuario.id.in_(
-                    db.session.query(ActivoOperador.usuario_id)
-                    .filter(
-                        ActivoOperador.activo == True
-                    )
-                )
+                func.lower(Rol.nombre).in_(ROLES_ASIGNABLES)
             )
             .order_by(Usuario.nombre)
             .all()
         )
 
+        # Los operadores solo pueden tener un activo. Los roles
+        # administrativos pueden acumular varios.
+        usuarios_con_activo = {
+            fila[0]
+            for fila in db.session.query(
+                ActivoOperador.usuario_id
+            ).filter(
+                ActivoOperador.activo == True
+            ).all()
+        }
+
         lista_usuarios = []
 
         for u in usuarios:
+
+            rol = _rol_de(u)
+
+            if rol == "operador" and u.id in usuarios_con_activo:
+                continue
 
             lista_usuarios.append({
 
             "id": u.id,
             "nombre": u.nombre,
             "username": u.username,
-            "telefono": u.telefono
+            "telefono": u.telefono,
+            "rol": rol,
+            "multiples_activos": rol in ROLES_ADMIN
 
         })
 
@@ -124,19 +160,32 @@ class ActivoOperadorService:
     # VEHÍCULOS
     # ===============================
 
+        # Un activo asignado a un operador no se ofrece para
+        # evitar cambiar su flujo. Sí se comparte entre roles
+        # administrativos.
+        ids_admin = [
+            u.id
+            for u in Usuario.query.join(Rol).filter(
+                func.lower(Rol.nombre).in_(ROLES_ADMIN)
+            ).all()
+        ]
+
+        vehiculos_en_operador = (
+            db.session.query(ActivoOperador.vehiculo_id)
+            .filter(
+                ActivoOperador.activo == True,
+                ActivoOperador.vehiculo_id.isnot(None),
+                ~ActivoOperador.usuario_id.in_(ids_admin)
+            )
+        )
+
         vehiculos = []
 
         datos = (
             Vehiculo.query
             .filter(
                 Vehiculo.activo == True,
-                ~Vehiculo.id.in_(
-                    db.session.query(ActivoOperador.vehiculo_id)
-                    .filter(
-                        ActivoOperador.activo == True,
-                        ActivoOperador.vehiculo_id.isnot(None)
-                    )
-                )
+                ~Vehiculo.id.in_(vehiculos_en_operador)
             )
             .order_by(Vehiculo.placa)
             .all()
@@ -162,19 +211,22 @@ class ActivoOperadorService:
     # MAQUINARIA
     # ===============================
 
+        maquinarias_en_operador = (
+            db.session.query(ActivoOperador.maquinaria_id)
+            .filter(
+                ActivoOperador.activo == True,
+                ActivoOperador.maquinaria_id.isnot(None),
+                ~ActivoOperador.usuario_id.in_(ids_admin)
+            )
+        )
+
         maquinarias = []
 
         datos = (
             Maquinaria.query
             .filter(
                 Maquinaria.activo == True,
-                ~Maquinaria.id.in_(
-                    db.session.query(ActivoOperador.maquinaria_id)
-                    .filter(
-                        ActivoOperador.activo == True,
-                        ActivoOperador.maquinaria_id.isnot(None)
-                    )
-                )
+                ~Maquinaria.id.in_(maquinarias_en_operador)
             )
             .order_by(Maquinaria.codigo)
             .all()
@@ -242,22 +294,52 @@ class ActivoOperadorService:
         if vehiculo_id and maquinaria_id:
             raise Exception("Solo puede asignar un tipo de activo.")
 
+        try:
+            usuario_id = int(usuario_id)
+        except (TypeError, ValueError):
+            raise Exception("Debe seleccionar un operador.")
+
+        usuario = Usuario.query.get(usuario_id)
+
+        if not usuario:
+            raise Exception("El usuario seleccionado no existe.")
+
+        es_admin = _es_administrador(usuario)
+
         # --------------------------------------------
-        # El operador ya tiene asignación
+        # No repetir el mismo activo para el mismo usuario
         # --------------------------------------------
 
-        existe = ActivoOperador.query.filter_by(
+        duplicado = ActivoOperador.query.filter_by(
             usuario_id=usuario_id,
+            vehiculo_id=vehiculo_id,
+            maquinaria_id=maquinaria_id,
             activo=True
         ).first()
 
-        if existe:
+        if duplicado:
             raise Exception(
-                "El operador ya tiene un activo asignado."
+                "Ese activo ya está asignado a este usuario."
             )
 
         # --------------------------------------------
-        # Vehículo ocupado
+        # Operadores: un único activo (flujo original)
+        # --------------------------------------------
+
+        if not es_admin:
+
+            existe = ActivoOperador.query.filter_by(
+                usuario_id=usuario_id,
+                activo=True
+            ).first()
+
+            if existe:
+                raise Exception(
+                    "El operador ya tiene un activo asignado."
+                )
+
+        # --------------------------------------------
+        # Vehículo ocupado por un operador
         # --------------------------------------------
 
         if vehiculo_id:
@@ -267,13 +349,16 @@ class ActivoOperadorService:
                 activo=True
             ).first()
 
-            if ocupado:
+            if ocupado and (
+                not es_admin
+                or not _es_administrador(ocupado.usuario)
+            ):
                 raise Exception(
                     "Ese vehículo ya está asignado."
                 )
 
         # --------------------------------------------
-        # Maquinaria ocupada
+        # Maquinaria ocupada por un operador
         # --------------------------------------------
 
         if maquinaria_id:
@@ -283,7 +368,10 @@ class ActivoOperadorService:
                 activo=True
             ).first()
 
-            if ocupado:
+            if ocupado and (
+                not es_admin
+                or not _es_administrador(ocupado.usuario)
+            ):
                 raise Exception(
                     "Esa maquinaria ya está asignada."
                 )
@@ -327,27 +415,65 @@ class ActivoOperadorService:
         if not vehiculo_id and not maquinaria_id:
             raise Exception("Debe seleccionar un activo.")
 
+        if not usuario_id:
+            usuario_id = asignacion.usuario_id
+
+        try:
+            usuario_id = int(usuario_id)
+        except (TypeError, ValueError):
+            raise Exception("Debe seleccionar un operador.")
+
+        usuario = Usuario.query.get(usuario_id)
+
+        if not usuario:
+            raise Exception("El usuario seleccionado no existe.")
+
+        es_admin = _es_administrador(usuario)
+
         # --------------------------------------------
-        # Validar operador
+        # No repetir el mismo activo para el mismo usuario
         # --------------------------------------------
 
-        existe = (
+        duplicado = (
             ActivoOperador.query
-            .filter(
-                ActivoOperador.usuario_id == usuario_id,
-                ActivoOperador.activo == True,
-                ActivoOperador.id != id
+            .filter_by(
+                usuario_id=usuario_id,
+                vehiculo_id=vehiculo_id,
+                maquinaria_id=maquinaria_id,
+                activo=True
             )
+            .filter(ActivoOperador.id != id)
             .first()
         )
 
-        if existe:
+        if duplicado:
             raise Exception(
-                "El operador ya tiene otro activo asignado."
+                "Ese activo ya está asignado a este usuario."
             )
 
         # --------------------------------------------
-        # Validar vehículo
+        # Operadores: un único activo (flujo original)
+        # --------------------------------------------
+
+        if not es_admin:
+
+            existe = (
+                ActivoOperador.query
+                .filter(
+                    ActivoOperador.usuario_id == usuario_id,
+                    ActivoOperador.activo == True,
+                    ActivoOperador.id != id
+                )
+                .first()
+            )
+
+            if existe:
+                raise Exception(
+                    "El operador ya tiene otro activo asignado."
+                )
+
+        # --------------------------------------------
+        # Validar vehículo (no quitar activo a un operador)
         # --------------------------------------------
 
         if vehiculo_id:
@@ -362,13 +488,16 @@ class ActivoOperadorService:
                 .first()
             )
 
-            if ocupado:
+            if ocupado and (
+                not es_admin
+                or not _es_administrador(ocupado.usuario)
+            ):
                 raise Exception(
                     "Ese vehículo ya está asignado."
                 )
 
         # --------------------------------------------
-        # Validar maquinaria
+        # Validar maquinaria (no quitar activo a un operador)
         # --------------------------------------------
 
         if maquinaria_id:
@@ -383,7 +512,10 @@ class ActivoOperadorService:
                 .first()
             )
 
-            if ocupado:
+            if ocupado and (
+                not es_admin
+                or not _es_administrador(ocupado.usuario)
+            ):
                 raise Exception(
                     "Esa maquinaria ya está asignada."
                 )
